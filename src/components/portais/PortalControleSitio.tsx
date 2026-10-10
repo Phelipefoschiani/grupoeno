@@ -12,7 +12,8 @@ import {
   Printer,
   Calendar,
   Wrench,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from 'lucide-react';
 import {
   DespesaSitio,
@@ -353,7 +354,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
   return (
     <div className="min-h-screen bg-[#f4f7f5] text-slate-900 flex flex-col font-sans">
       
-      {/* 1. TOPO: 'Controle' em destaque */}
+      {/* 1. TOPO: 'Controle' e botão 'Sair' */}
       <header className="bg-[#022013] text-white border-b border-emerald-900 shadow-md sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           
@@ -361,48 +362,28 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
             <button
               onClick={onVoltar}
               className="
-                inline-flex items-center gap-1.5 px-3.5 py-2
+                inline-flex items-center gap-2 px-3.5 py-2
                 rounded-xl bg-white/10 hover:bg-white/20
                 text-xs font-bold text-emerald-200 hover:text-white
                 border border-white/10
                 transition-all cursor-pointer
               "
-              title="Sair do portal e voltar ao início"
+              title="Sair do portal"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Voltar ao Início</span>
+              <LogOut className="w-4 h-4" />
+              <span>Sair</span>
             </button>
 
-            <div className="h-6 w-px bg-emerald-800/80 hidden sm:block" />
+            <div className="h-6 w-px bg-emerald-800/80" />
 
             <div>
               <div className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-emerald-400">
                 Grupo ENO · Agroindústria & Campo
               </div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                <span>Controle</span>
-                <span className="text-emerald-400/80 text-sm font-semibold tracking-normal hidden md:inline">
-                  · Gestão de Combustível, Tratores & Despesas Situacionais
-                </span>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                Controle
               </h1>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setModalEntradaLitros(true)}
-              className="
-                inline-flex items-center gap-2
-                rounded-xl bg-emerald-600 hover:bg-emerald-500
-                px-4 py-2 text-xs sm:text-sm font-extrabold text-white
-                shadow-md shadow-emerald-950/30
-                transition-all duration-150
-                hover:-translate-y-0.5 cursor-pointer
-              "
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Entrada de Litros</span>
-            </button>
           </div>
 
         </div>
