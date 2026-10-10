@@ -126,9 +126,6 @@ export function FinanceiroAPagar({ onNavigate }: Props) {
                 {metricas.qtdAPagar} pendentes
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Compromissos financeiros com agricultores de mandioca, lenha, concessionárias e fornecedores de insumos.
-            </p>
           </div>
 
           <button

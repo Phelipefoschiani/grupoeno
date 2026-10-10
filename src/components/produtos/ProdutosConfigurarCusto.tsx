@@ -213,19 +213,16 @@ export function ProdutosConfigurarCusto({ onNavigate }: Props) {
       {/* 1. NAVEGAÇÃO DE PRODUTOS */}
       <ProdutosNavTabs activeTab="produtos_configurar_custo" onNavigate={onNavigate} />
 
-      {/* 2. CABEÇALHO COMPACTO & MINIMALISTA */}
+      {/* 2. CABEÇALHO */}
       <div className="bg-white border-b border-slate-200/80 px-6 py-3.5 shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <span>Configuração de Custos & Formação de Preço</span>
+              <span>Configuração de Custos & Preços</span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
                 {metricas.total} produtos
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Gestão de matérias-primas da receita, alíquotas de impostos sobre o produto e cálculo de margem por unidade e fardo/caixa.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -238,23 +235,16 @@ export function ProdutosConfigurarCusto({ onNavigate }: Props) {
         {/* STAT BAR EM LINHA */}
         <div className="flex flex-wrap items-center gap-6 pt-3 mt-3 border-t border-slate-100 text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-medium">Alíquota Média de Impostos:</span>
+            <span className="text-slate-400 font-medium">Impostos Médios:</span>
             <span className="font-mono font-bold text-slate-900 text-sm">
-              {metricas.mediaImpostos.toFixed(1)}% sobre produto
+              {metricas.mediaImpostos.toFixed(1)}%
             </span>
           </div>
           <div className="w-px h-4 bg-slate-200 hidden sm:block" />
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-medium">Margem Média Bruta da Linha:</span>
+            <span className="text-slate-400 font-medium">Margem Bruta Média:</span>
             <span className={`font-mono font-bold text-sm ${metricas.mediaMargem >= 20 ? 'text-emerald-700' : 'text-amber-700'}`}>
               +{metricas.mediaMargem.toFixed(1)}%
-            </span>
-          </div>
-          <div className="w-px h-4 bg-slate-200 hidden sm:block" />
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-medium">Fluxo Integrado:</span>
-            <span className="font-mono font-bold text-slate-700 text-xs">
-              Receita ➔ Insumos ➔ Impostos ➔ Pedido de Venda
             </span>
           </div>
         </div>

@@ -114,9 +114,6 @@ export function PedidosEntregues({ onNavigate }: Props) {
                 {metricas.total} finalizados
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Histórico de entregas com canhoto arquivado e recompra rápida.
-            </p>
           </div>
         </div>
 

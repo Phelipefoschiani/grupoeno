@@ -136,9 +136,6 @@ export function FinanceiroCaixaInvestimento({ onNavigate }: Props) {
                 Patrimônio R$ {(totalPatrimonioLiquido / 1000000).toFixed(2)}M
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Gestão de liquidez industrial, reserva garantidora de compra de safra e aportes em automação fabril.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

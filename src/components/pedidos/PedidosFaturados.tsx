@@ -174,9 +174,6 @@ export function PedidosFaturados({ onNavigate }: Props) {
                 {metricas.total} em rota
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Cargas com Nota Fiscal guardada (importadas via XML/PDF externo) em transporte rodoviário até o cliente.
-            </p>
           </div>
         </div>
 

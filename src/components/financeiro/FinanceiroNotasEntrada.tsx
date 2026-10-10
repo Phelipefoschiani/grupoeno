@@ -122,9 +122,6 @@ export function FinanceiroNotasEntrada({ onNavigate }: Props) {
                 {totalNotas} documentos
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Entrada de raiz de mandioca in natura, biomassa/lenha e insumos fabris com escrituração fiscal.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

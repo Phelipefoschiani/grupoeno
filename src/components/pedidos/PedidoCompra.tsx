@@ -926,9 +926,6 @@ export function PedidoCompra() {
                 {pedidos.length}
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
-              Pedidos de matéria-prima, insumos e embalagens com integração automática de despesas ao confirmar.
-            </p>
           </div>
         </div>
 

@@ -588,9 +588,6 @@ export function FinanceiroLancarDespesas({ onNavigate }: Props) {
                 Grupo ENO
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
-              Controle de despesas operacionais realizadas e programação de compras sincronizada com pedidos de compra.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

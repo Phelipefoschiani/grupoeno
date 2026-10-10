@@ -690,9 +690,6 @@ export function CalculoNaRocaComponent({ onNavigate }: Props) {
             <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
               Cálculo na Roça
             </h2>
-            <p className="text-xs text-slate-500 font-medium">
-              Conferência de colheita na lavoura, pesagem individual de sacos e integração automática com Pedidos de Compra
-            </p>
           </div>
         </div>
 

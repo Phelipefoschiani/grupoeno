@@ -1,4 +1,5 @@
 // Store compartilhado para sincronização entre Cadastros e Pedidos de Compra
+import { integrarEntradaMateriaPrima } from './pipelineIntegrado';
 
 export type StatusPedidoCompra = 'A Confirmar' | 'Confirmado' | 'Programado' | 'Orçamento' | 'Entregue (A Pagar)' | 'Pago';
 
@@ -638,15 +639,32 @@ export function confirmarPedidoCompraELancarDespesa(pedidoId: string): { sucesso
     titulosPagar.unshift(novoTituloPagar);
     localStorage.setItem('grupo_eno_financeiro_pagar_v1', JSON.stringify(titulosPagar));
 
-    // Notifica o app de que o financeiro foi atualizado
+    // 5. Integra com o estoque de matéria-prima e NF de Entrada
+    try {
+      integrarEntradaMateriaPrima({
+        descricaoItem: pedido.item_descricao,
+        quantidade: pedido.quantidade,
+        unidade: pedido.unidade_medida,
+        valorTotal: pedido.valor_total,
+        fornecedorNome: parceiroNome,
+        fornecedorCpfCnpj: pedido.agricultor_cpf_cnpj || pedido.fornecedor_cnpj,
+        numeroNF: `PC-${pedido.id.toUpperCase()}`,
+        data: pedido.data
+      });
+    } catch (e) {
+      console.error('Erro na integração:', e);
+    }
+
+    // Notifica o app de que o financeiro e estoque foram atualizados
     window.dispatchEvent(new Event('financeiro_updated'));
+    window.dispatchEvent(new Event('produtos_updated'));
   } catch (err) {
     console.error('Erro ao integrar com financeiro:', err);
   }
 
   return {
     sucesso: true,
-    mensagem: `Pedido de Compra confirmado com sucesso! Lançado automaticamente no Financeiro como "${categoriaFinanceiro}".`,
+    mensagem: `Pedido de Compra confirmado com sucesso! Lançado no Estoque de Matéria-Prima e no Financeiro como "${categoriaFinanceiro}".`,
     categoriaFinanceiro
   };
 }

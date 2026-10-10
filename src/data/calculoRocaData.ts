@@ -6,6 +6,7 @@ import {
   AGRICULTORES_CADASTRADOS,
   FORNECEDORES_CADASTRADOS 
 } from './mockStore';
+import { integrarEntradaMateriaPrima } from './pipelineIntegrado';
 
 export interface SacoPesagem {
   numero: number;
@@ -378,6 +379,22 @@ export function definirPagamentoCalculoRoca(
 
     pedidos[pIndex] = pedido;
     salvarPedidosCompra(pedidos);
+  }
+
+  // Integra com o estoque de Matéria-Prima
+  try {
+    integrarEntradaMateriaPrima({
+      descricaoItem: `Mandioca na Roça (${calculo.total_sacos} sacos - ${calculo.variedade_mandioca || 'Industrial'})`,
+      quantidade: calculo.peso_total_kg,
+      unidade: 'KG',
+      valorTotal: calculo.valor_total_estimado,
+      fornecedorNome: calculo.fornecedor_nome,
+      fornecedorCpfCnpj: calculo.fornecedor_cpf_cnpj,
+      numeroNF: `ROCA-${calculo.numero_ticket}`,
+      data: calculo.data
+    });
+  } catch (err) {
+    console.error('Erro ao integrar estoque de mandioca da roça:', err);
   }
 
   return {

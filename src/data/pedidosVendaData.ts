@@ -3,6 +3,7 @@
 // Orçamentos -> Em Produção -> A Faturar -> Faturados -> Entregues -> Relatórios
 
 import { carregarEstoqueProdutos, ProdutoEstoque } from './produtosData';
+import { integrarConclusaoProducao, integrarFaturamentoPedidoVenda } from './pipelineIntegrado';
 
 export type EtapaPedidoVenda = 
   | 'ORCAMENTO' 
@@ -768,6 +769,12 @@ export function moverPedidoEtapa(
         }));
       } else if (novaEtapa === 'A_FATURAR') {
         if (!updated.data_conclusao_producao) updated.data_conclusao_producao = dataHoje;
+        // Integração: baixa matérias-primas e alimenta estoque de produto acabado
+        try {
+          integrarConclusaoProducao(updated);
+        } catch (e) {
+          console.error('Erro na integração de produção:', e);
+        }
       } else if (novaEtapa === 'FATURADO') {
         if (!updated.data_faturamento) updated.data_faturamento = dataHoje;
         if (!updated.nota_fiscal) {
@@ -778,6 +785,12 @@ export function moverPedidoEtapa(
             chave_acesso: `412603${p.cliente_cnpj_cpf.replace(/\D/g, '').padEnd(14, '0')}5500100000${numNf}10${numNf}9944`,
             data_emissao: `${dataHoje.split('-').reverse().join('/')} 10:30`
           };
+        }
+        // Integração: baixa estoque de produto vendido, gera Título a Receber e NF-e de Saída
+        try {
+          integrarFaturamentoPedidoVenda(updated);
+        } catch (e) {
+          console.error('Erro na integração de faturamento:', e);
         }
       } else if (novaEtapa === 'ENTREGUE') {
         if (!updated.data_entrega_realizada) {

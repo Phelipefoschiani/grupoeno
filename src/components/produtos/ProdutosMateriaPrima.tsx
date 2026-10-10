@@ -164,9 +164,6 @@ export function ProdutosMateriaPrima({ onNavigate }: Props) {
                 {materias.length} insumos
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Gestão de pátio de raízes in natura, lenha de biomassa para caldeiras e embalagens.
-            </p>
           </div>
 
           <button

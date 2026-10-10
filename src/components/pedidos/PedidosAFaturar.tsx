@@ -242,9 +242,6 @@ export function PedidosAFaturar({ onNavigate }: Props) {
                 {metricas.total} cargas prontas
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Conferência de lote/vencimento e <strong>importação de Nota Fiscal (XML ou PDF)</strong> emitida externamente para guarda eletrônica.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

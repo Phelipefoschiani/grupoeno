@@ -129,9 +129,6 @@ export function FinanceiroLancarReceita({ onNavigate }: Props) {
                 {receitas.length} entradas
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Controle de entradas de subprodutos fabris (bagaço úmido, cascas), aplicações financeiras e receitas acessórias.
-            </p>
           </div>
 
           <button

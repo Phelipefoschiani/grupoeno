@@ -131,9 +131,6 @@ export function FinanceiroAReceber({ onNavigate }: Props) {
                 {metricas.qtdAberto} em aberto
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Controle de duplicatas comerciais, boletos bancários gerados dos pedidos e conciliação de recebíveis.
-            </p>
           </div>
 
           <button

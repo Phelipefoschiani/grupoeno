@@ -295,9 +295,6 @@ export function ProdutosEstoqueCadastro({ onNavigate }: Props) {
                 {metricas.totalItens} produtos
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Controle físico de sacaria 25kg e Big Bags prontos nos galpões de expedição da fábrica.
-            </p>
           </div>
 
           <button

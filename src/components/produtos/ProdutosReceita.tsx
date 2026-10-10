@@ -388,9 +388,6 @@ export function ProdutosReceita({ onNavigate }: Props) {
                 {metricasGlobais.total} receitas cadastradas
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Controle das matérias-primas utilizadas na formulação e quantos pacotes rende por batelada.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

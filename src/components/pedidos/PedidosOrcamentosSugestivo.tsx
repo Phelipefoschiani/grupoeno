@@ -474,9 +474,6 @@ export function PedidosOrcamentosSugestivo({ onNavigate }: Props) {
                 {metricas.total} propostas ativas
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Gestão comercial de Vendas: cotações, orçamentos comerciais, pedidos sugestivos e pedidos de venda com exportação em PNG e PDF.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">

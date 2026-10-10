@@ -340,9 +340,6 @@ export function PedidosEmProducao({ onNavigate }: Props) {
                 </span>
               )}
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Controle de produção por produto e apontamentos parciais. <strong>Exigência:</strong> Lote e Data de Vencimento obrigatórios para liberar ao faturamento.
-            </p>
           </div>
         </div>
 

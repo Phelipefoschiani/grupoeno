@@ -22,6 +22,7 @@ import {
   salvarControleSitio,
   NotaFiscalDespesa
 } from '../../data/sitioControleData';
+import { integrarDespesaSitioAoFinanceiro } from '../../data/pipelineIntegrado';
 
 interface PortalControleSitioProps {
   onVoltar: () => void;
@@ -230,6 +231,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
 
     salvarControleSitio(novosDados);
     setDados(novosDados);
+    integrarDespesaSitioAoFinanceiro(novaEntrada);
     setModalEntradaLitros(false);
   };
 
@@ -339,6 +341,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
 
     salvarControleSitio(novosDados);
     setDados(novosDados);
+    integrarDespesaSitioAoFinanceiro(novaDespesa);
     setModalDespesaSituacional(false);
   };
 
@@ -451,9 +454,6 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                 <h3 className="text-base sm:text-lg font-black text-slate-900">
                   Litros Usados no Mês (Trator)
                 </h3>
-                <div className="mt-1 text-xs text-slate-500 font-semibold">
-                  Consumo acumulado em Outubro/2026
-                </div>
               </div>
               <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
                 <Tractor className="w-6 h-6" />
@@ -498,9 +498,6 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                 <h3 className="text-base sm:text-lg font-black text-slate-900">
                   Despesas Situacionais
                 </h3>
-                <div className="mt-1 text-xs text-slate-500 font-semibold">
-                  Combustíveis, peças de reposição e revisões
-                </div>
               </div>
               <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
                 <DollarSign className="w-6 h-6" />
@@ -550,9 +547,6 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
               <h2 className="text-base sm:text-lg font-black text-slate-900">
                 Histórico de Movimentação
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Registro de compras de combustível, abastecimentos de máquinas e despesas
-              </p>
             </div>
 
             {/* Barra de Filtro e Busca */}

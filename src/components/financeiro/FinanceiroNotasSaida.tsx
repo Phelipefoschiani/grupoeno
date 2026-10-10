@@ -54,9 +54,6 @@ export function FinanceiroNotasSaida({ onNavigate }: Props) {
                 {notas.length} emitidas
               </span>
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Repositório fiscal de notas autorizadas na SEFAZ emitidas para indústrias e clientes comerciais.
-            </p>
           </div>
         </div>
       </div>
