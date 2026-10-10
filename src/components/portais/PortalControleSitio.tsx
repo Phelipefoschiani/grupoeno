@@ -1,33 +1,33 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
+  ArrowLeft,
+  Fuel,
   Tractor,
+  DollarSign,
+  FileText,
+  Plus,
+  Search,
+  Filter,
+  CheckCircle2,
+  X,
+  Printer,
+  Download,
   Calendar,
   Layers,
-  TrendingUp,
-  MapPin,
-  Clock,
-  ArrowLeft,
-  Plus,
-  Edit2,
-  Trash2,
-  DollarSign,
-  Search,
-  CheckCircle2,
-  AlertCircle,
-  FileText,
-  Fuel,
   Wrench,
-  Sprout,
-  Check,
-  X,
-  Filter
+  ShieldCheck,
+  AlertCircle,
+  Truck,
+  Droplet,
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react';
 import {
-  TalhaoSitio,
-  ApontamentoSitio,
-  SitioControleData,
-  carregarDadosSitio,
-  salvarDadosSitio
+  DespesaSitio,
+  ControleSitioState,
+  carregarControleSitio,
+  salvarControleSitio,
+  NotaFiscalDespesa
 } from '../../data/sitioControleData';
 
 interface PortalControleSitioProps {
@@ -35,720 +35,1036 @@ interface PortalControleSitioProps {
 }
 
 export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
-  const [sitio, setSitio] = useState<SitioControleData>(carregarDadosSitio());
-  const [abaAtiva, setAbaAtiva] = useState<'talhoes' | 'apontamentos' | 'indicadores'>('talhoes');
+  const [dados, setDados] = useState<ControleSitioState>(carregarControleSitio());
+  const [busca, setBusca] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState<string>('TODOS');
+  
+  // Modal de Visualização da Nota Fiscal
+  const [notaSelecionada, setNotaSelecionada] = useState<{
+    despesa: DespesaSitio;
+    nota: NotaFiscalDespesa;
+  } | null>(null);
 
-  // Modal Novo Talhão
-  const [modalTalhao, setModalTalhao] = useState(false);
-  const [talhaoEmEdicao, setTalhaoEmEdicao] = useState<TalhaoSitio | null>(null);
-  const [formTalhao, setFormTalhao] = useState<Omit<TalhaoSitio, 'id'>>({
-    codigo: 'TAL-05',
-    nome: '',
-    area_ha: 15,
-    variedade_mandioca: 'Fécula Branca IAC-14',
-    data_plantio: new Date().toISOString().split('T')[0],
-    data_previsao_colheita: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
-    status: 'EM_DESENVOLVIMENTO',
-    estimativa_ton_ha: 30,
-    toneladas_estimadas: 450,
-    custo_acumulado_reais: 15000,
-    observacoes: ''
-  });
-
-  // Modal Novo Apontamento
-  const [modalApontamento, setModalApontamento] = useState(false);
-  const [formApontamento, setFormApontamento] = useState<Omit<ApontamentoSitio, 'id'>>({
+  // Modal de Nova Despesa
+  const [modalNovaDespesa, setModalNovaDespesa] = useState(false);
+  const [formDespesa, setFormDespesa] = useState({
     data: new Date().toISOString().split('T')[0],
-    tipo: 'ADUBACAO',
-    talhao_id: sitio.talhoes[0]?.id || '',
-    talhao_nome: sitio.talhoes[0]?.nome || '',
+    nomeDespesa: '',
+    tipo: 'COMBUSTIVEL' as DespesaSitio['tipo'],
+    produto: 'Diesel S10',
+    quantidade: 100,
+    unidade: 'L',
+    valorUnitario: 5.89,
+    valorTotal: 589.00,
+    maquinaTrator: 'Trator Valtra A950',
     responsavel: 'Valdecir (Mestre de Campo)',
-    descricao: '',
-    valor_custo: 1200,
-    quantidade_utilizada: '',
-    horas_trator: 0
+    numeroNF: '',
+    emitenteNF: 'Posto Rota do Agronegócio Ltda',
+    cnpjEmitente: '14.892.102/0001-44',
+    abaterDoTanque: true
   });
+
+  // Modal de Abastecer Tanque do Sítio
+  const [modalAbastecerTanque, setModalAbastecerTanque] = useState(false);
+  const [litrosEntradaTanque, setLitrosEntradaTanque] = useState<number>(1000);
+  const [fornecedorTanque, setFornecedorTanque] = useState('Distribuidora Petrobras / Ipiranga');
+  const [notaTanque, setNotaTanque] = useState('NF-e 089.442');
 
   useEffect(() => {
-    const handleUpdate = () => setSitio(carregarDadosSitio());
-    window.addEventListener('sitio_controle_updated', handleUpdate);
-    return () => window.removeEventListener('sitio_controle_updated', handleUpdate);
+    const handleUpdate = () => setDados(carregarControleSitio());
+    window.addEventListener('sitio_controle_despesas_updated', handleUpdate);
+    return () => window.removeEventListener('sitio_controle_despesas_updated', handleUpdate);
   }, []);
 
-  // Métricas Consolidadas do Sítio
-  const metricas = useMemo(() => {
-    const totalAreaPlantadaHa = sitio.talhoes.reduce((acc, t) => acc + t.area_ha, 0);
-    const totalTonEstimadas = sitio.talhoes.reduce((acc, t) => acc + t.toneladas_estimadas, 0);
-    const custoTotalManejo = sitio.talhoes.reduce((acc, t) => acc + t.custo_acumulado_reais, 0);
-    const custoMedioPorHa = totalAreaPlantadaHa > 0 ? (custoTotalManejo / totalAreaPlantadaHa) : 0;
-    const mediaProdutividadeTonHa = totalAreaPlantadaHa > 0 ? (totalTonEstimadas / totalAreaPlantadaHa) : 0;
+  // Cálculos dos 3 Cards Solicitados:
+  // 1. Total de litros disponível no tanque do sítio
+  const totalLitrosDisponivel = dados.totalLitrosDisponivel;
+  const capacidadeTanque = dados.capacidadeTanqueLitros || 5000;
+  const porcentagemTanque = Math.min(100, Math.round((totalLitrosDisponivel / capacidadeTanque) * 100));
 
-    return {
-      totalAreaPlantadaHa,
-      totalTonEstimadas,
-      custoTotalManejo,
-      custoMedioPorHa,
-      mediaProdutividadeTonHa
-    };
-  }, [sitio]);
+  // Mês e Ano corrente para cálculo mensal (YYYY-MM)
+  const mesAtualKey = new Date().toISOString().slice(0, 7); // ex: "2026-10"
 
-  // Salvar Talhão
-  const handleSalvarTalhao = (e: React.FormEvent) => {
-    e.preventDefault();
-    const tonEstimadas = formTalhao.area_ha * formTalhao.estimativa_ton_ha;
+  // 2. Total de litros usados nesse mês de combustível no trator
+  const litrosUsadosNoMes = useMemo(() => {
+    return dados.despesas
+      .filter(d => {
+        const ehMesAtual = d.data.startsWith(mesAtualKey);
+        const ehCombustivelTrator = d.unidade === 'L' || d.tipo === 'COMBUSTIVEL';
+        return ehMesAtual && ehCombustivelTrator;
+      })
+      .reduce((acc, d) => acc + (Number(d.quantidade) || 0), 0);
+  }, [dados.despesas, mesAtualKey]);
 
-    let novosTalhoes = [...sitio.talhoes];
-    if (talhaoEmEdicao) {
-      novosTalhoes = novosTalhoes.map(t => {
-        if (t.id === talhaoEmEdicao.id) {
-          return {
-            ...t,
-            ...formTalhao,
-            toneladas_estimadas: tonEstimadas
-          };
-        }
-        return t;
-      });
-    } else {
-      const novo: TalhaoSitio = {
-        id: `tal_${Date.now()}`,
-        ...formTalhao,
-        toneladas_estimadas: tonEstimadas
-      };
-      novosTalhoes.push(novo);
-    }
+  // 3. Despesas situacionais (Total em R$ de todas as despesas situacionais cadastradas)
+  const totalDespesasSituacionais = useMemo(() => {
+    return dados.despesas.reduce((acc, d) => acc + (Number(d.valorTotal) || 0), 0);
+  }, [dados.despesas]);
 
-    const atualizado = { ...sitio, talhoes: novosTalhoes };
-    salvarDadosSitio(atualizado);
-    setSitio(atualizado);
-    setModalTalhao(false);
-    setTalhaoEmEdicao(null);
+  // Filtro da Tabela em Linhas
+  const despesasFiltradas = useMemo(() => {
+    return dados.despesas.filter(d => {
+      const matchBusca = 
+        d.nomeDespesa.toLowerCase().includes(busca.toLowerCase()) ||
+        d.produto.toLowerCase().includes(busca.toLowerCase()) ||
+        d.maquinaTrator.toLowerCase().includes(busca.toLowerCase()) ||
+        d.notaFiscal.numero.toLowerCase().includes(busca.toLowerCase());
+
+      const matchTipo = filtroTipo === 'TODOS' || d.tipo === filtroTipo;
+
+      return matchBusca && matchTipo;
+    });
+  }, [dados.despesas, busca, filtroTipo]);
+
+  // Manipular alteração de quantidade / valor unitário no formulário
+  const handleAtualizarPrecoUnitario = (qtd: number, vlrUnit: number) => {
+    setFormDespesa(prev => ({
+      ...prev,
+      quantidade: qtd,
+      valorUnitario: vlrUnit,
+      valorTotal: Number((qtd * vlrUnit).toFixed(2))
+    }));
   };
 
-  // Salvar Apontamento de Campo
-  const handleSalvarApontamento = (e: React.FormEvent) => {
+  // Salvar Nova Despesa
+  const handleSalvarDespesa = (e: React.FormEvent) => {
     e.preventDefault();
-    const talhao = sitio.talhoes.find(t => t.id === formApontamento.talhao_id);
-    const novo: ApontamentoSitio = {
-      id: `apt_${Date.now()}`,
-      ...formApontamento,
-      talhao_nome: talhao ? talhao.nome : formApontamento.talhao_nome
-    };
 
-    // Atualiza o custo acumulado no talhão correspondente
-    const talhoesAtualizados = sitio.talhoes.map(t => {
-      if (t.id === formApontamento.talhao_id) {
-        return {
-          ...t,
-          custo_acumulado_reais: t.custo_acumulado_reais + Number(formApontamento.valor_custo || 0)
-        };
+    const numeroNotaFormatado = formDespesa.numeroNF.trim() || `NF-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const novaDespesa: DespesaSitio = {
+      id: `desp_${Date.now()}`,
+      data: formDespesa.data,
+      nomeDespesa: formDespesa.nomeDespesa || `${formDespesa.tipo === 'COMBUSTIVEL' ? 'Abastecimento' : 'Compra'} - ${formDespesa.produto}`,
+      tipo: formDespesa.tipo,
+      produto: formDespesa.produto,
+      quantidade: Number(formDespesa.quantidade),
+      unidade: formDespesa.unidade,
+      valorUnitario: Number(formDespesa.valorUnitario),
+      valorTotal: Number(formDespesa.valorTotal),
+      maquinaTrator: formDespesa.maquinaTrator,
+      responsavel: formDespesa.responsavel,
+      notaFiscal: {
+        numero: numeroNotaFormatado,
+        serie: '1',
+        chaveAcesso: `4126 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 0001 9255 0010 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 8172`,
+        dataEmissao: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`,
+        emitente: formDespesa.emitenteNF,
+        cnpjEmitente: formDespesa.cnpjEmitente,
+        destinatario: 'Sítio Santana - Grupo ENO Agroindústria',
+        cnpjDestinatario: '08.721.432/0001-90',
+        formaPagamento: 'Faturado (Boleto Bancário)',
+        itens: [
+          {
+            descricao: formDespesa.produto.toUpperCase(),
+            quantidade: Number(formDespesa.quantidade),
+            unidade: formDespesa.unidade,
+            precoUnitario: Number(formDespesa.valorUnitario),
+            total: Number(formDespesa.valorTotal)
+          }
+        ],
+        observacoes: `Lançado no Controle do Sítio. Aplicação: ${formDespesa.maquinaTrator}`
       }
-      return t;
-    });
-
-    const atualizado = {
-      ...sitio,
-      talhoes: talhoesAtualizados,
-      apontamentos: [novo, ...sitio.apontamentos]
     };
-    salvarDadosSitio(atualizado);
-    setSitio(atualizado);
-    setModalApontamento(false);
+
+    let novoTotalTanque = dados.totalLitrosDisponivel;
+    if (formDespesa.tipo === 'COMBUSTIVEL' && formDespesa.unidade === 'L' && formDespesa.abaterDoTanque) {
+      novoTotalTanque = Math.max(0, novoTotalTanque - Number(formDespesa.quantidade));
+    }
+
+    const novosDados: ControleSitioState = {
+      ...dados,
+      totalLitrosDisponivel: novoTotalTanque,
+      despesas: [novaDespesa, ...dados.despesas]
+    };
+
+    salvarControleSitio(novosDados);
+    setDados(novosDados);
+    setModalNovaDespesa(false);
+  };
+
+  // Entrada de Litros no Tanque da Fazenda
+  const handleConfirmarEntradaTanque = (e: React.FormEvent) => {
+    e.preventDefault();
+    const novosLitros = dados.totalLitrosDisponivel + Number(litrosEntradaTanque);
+
+    const novosDados: ControleSitioState = {
+      ...dados,
+      totalLitrosDisponivel: novosLitros
+    };
+
+    salvarControleSitio(novosDados);
+    setDados(novosDados);
+    setModalAbastecerTanque(false);
+  };
+
+  const formatarDataBR = (dataIso: string) => {
+    if (!dataIso) return '-';
+    const partes = dataIso.split('-');
+    if (partes.length === 3) {
+      return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+    return dataIso;
   };
 
   return (
-    <div className="min-h-screen bg-[#f8faf9] text-slate-800 flex flex-col font-sans select-none">
+    <div className="min-h-screen bg-[#f4f7f5] text-slate-900 flex flex-col font-sans">
       
-      {/* 1. TOPO DO PORTAL CONTROLE DO SÍTIO */}
-      <header className="sticky top-0 z-30 bg-[#022013] text-white border-b border-emerald-800 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+      {/* 1. TOPO: 'Controle' em destaque com navegação e ações */}
+      <header className="bg-[#022013] text-white border-b border-emerald-900 shadow-md sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
               onClick={onVoltar}
-              className="p-2 sm:p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-              title="Voltar ao Painel Principal"
+              className="
+                inline-flex items-center gap-1.5 px-3.5 py-2
+                rounded-xl bg-white/10 hover:bg-white/20
+                text-xs font-bold text-emerald-200 hover:text-white
+                border border-white/10
+                transition-all cursor-pointer
+              "
+              title="Sair do portal e voltar ao início"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
+              <span>Voltar ao Início</span>
             </button>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-lime-500 to-emerald-700 flex items-center justify-center text-white shadow-sm">
-              <Sprout className="w-5 h-5" />
-            </div>
+
+            <div className="h-6 w-px bg-emerald-800/80 hidden sm:block" />
+
             <div>
-              <div className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">
-                Grupo ENO · Produção Agrícola Própria
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-emerald-400">
+                Grupo ENO · Agroindústria & Campo
               </div>
-              <h1 className="text-base sm:text-xl font-black text-white tracking-tight leading-none">
-                Controle do Sítio & Mandiocultura
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                <span>Controle</span>
+                <span className="text-emerald-400/80 text-sm font-semibold tracking-normal hidden md:inline">
+                  · Gestão de Combustível, Tratores & Despesas Situacionais
+                </span>
               </h1>
             </div>
           </div>
 
-          {/* Abas e Atalhos */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
-              onClick={() => {
-                setTalhaoEmEdicao(null);
-                setFormTalhao({
-                  codigo: `TAL-0${sitio.talhoes.length + 1}`,
-                  nome: '',
-                  area_ha: 12,
-                  variedade_mandioca: 'Fécula Branca IAC-14',
-                  data_plantio: new Date().toISOString().split('T')[0],
-                  data_previsao_colheita: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
-                  status: 'EM_DESENVOLVIMENTO',
-                  estimativa_ton_ha: 30,
-                  toneladas_estimadas: 360,
-                  custo_acumulado_reais: 10000,
-                  observacoes: ''
-                });
-                setModalTalhao(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer"
+              onClick={() => setModalAbastecerTanque(true)}
+              className="
+                inline-flex items-center gap-2
+                rounded-xl bg-emerald-800/80 hover:bg-emerald-700
+                border border-emerald-600/50
+                px-3.5 py-2 text-xs font-bold text-emerald-100
+                transition-all cursor-pointer shadow-xs
+              "
             >
-              <Plus className="w-4 h-4" />
-              <span>Novo Talhão</span>
+              <Fuel className="w-4 h-4 text-emerald-300" />
+              <span className="hidden sm:inline">Abastecer Tanque</span>
+              <span className="sm:hidden">+ Tanque</span>
             </button>
 
             <button
-              onClick={() => {
-                setFormApontamento({
-                  data: new Date().toISOString().split('T')[0],
-                  tipo: 'ADUBACAO',
-                  talhao_id: sitio.talhoes[0]?.id || '',
-                  talhao_nome: sitio.talhoes[0]?.nome || '',
-                  responsavel: 'Valdecir (Mestre de Campo)',
-                  descricao: '',
-                  valor_custo: 1500,
-                  quantidade_utilizada: '',
-                  horas_trator: 0
-                });
-                setModalApontamento(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-lime-600 hover:bg-lime-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer"
+              onClick={() => setModalNovaDespesa(true)}
+              className="
+                inline-flex items-center gap-2
+                rounded-xl bg-emerald-500 hover:bg-emerald-400
+                px-4 py-2 text-xs sm:text-sm font-extrabold text-slate-950
+                shadow-md shadow-emerald-950/30
+                transition-all duration-150
+                hover:-translate-y-0.5 cursor-pointer
+              "
             >
-              <Plus className="w-4 h-4" />
-              <span>Lançar Manejo / Custo</span>
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>Lançar Despesa</span>
             </button>
           </div>
 
         </div>
       </header>
 
-      {/* 2. CONTEÚDO PRINCIPAL */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        
-        {/* Identificação do Sítio */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black text-slate-900">{sitio.nome_propriedade}</h2>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-lime-100 text-lime-900 border border-lime-300">
-                {sitio.safra_ativa}
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
+
+        {/* 2. OS 3 CARDS SOLICITADOS */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          
+          {/* CARD 1: Total de litros disponível */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Reserva da Fazenda
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                  Total de Litros Disponível
+                </h3>
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                <Fuel className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                  {totalLitrosDisponivel.toLocaleString('pt-BR')}
+                </span>
+                <span className="text-lg font-bold text-emerald-700">Litros</span>
+              </div>
+              
+              {/* Barra de volume do reservatório */}
+              <div className="mt-3">
+                <div className="flex justify-between text-[11px] text-slate-500 font-semibold mb-1">
+                  <span>Tanque central do sítio</span>
+                  <span>{porcentagemTanque}% ({totalLitrosDisponivel} / {capacidadeTanque} L)</span>
+                </div>
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      porcentagemTanque < 25 ? 'bg-amber-500' : 'bg-emerald-600'
+                    }`}
+                    style={{ width: `${porcentagemTanque}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                <Droplet className="w-3.5 h-3.5" /> Diesel S10 & Gasolina
               </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
-              <span>Localização: <strong>{sitio.municipio_uf}</strong></span>
-              <span>•</span>
-              <span>Área Total da Propriedade: <strong>{sitio.area_total_ha} Hectares</strong></span>
-              <span>•</span>
-              <span>Gestão Responsável: <strong>{sitio.responsavel_proprietario}</strong></span>
-            </div>
-          </div>
-
-          {/* Abas */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-            <button
-              onClick={() => setAbaAtiva('talhoes')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                abaAtiva === 'talhoes' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Talhões & Plantio ({sitio.talhoes.length})
-            </button>
-            <button
-              onClick={() => setAbaAtiva('apontamentos')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                abaAtiva === 'apontamentos' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Manejo & Custos ({sitio.apontamentos.length})
-            </button>
-          </div>
-        </div>
-
-        {/* 4 Cards de Resumo do Mandiocal */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-            <div className="text-xs font-bold text-slate-500">Área de Mandioca Plantada</div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
-              {metricas.totalAreaPlantadaHa.toFixed(1)} <span className="text-sm font-bold text-slate-500">ha</span>
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">{sitio.talhoes.length} talhões mapeados</div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-            <div className="text-xs font-bold text-slate-500">Estimativa de Safra Prevista</div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">
-              {metricas.totalTonEstimadas.toLocaleString('pt-BR')} <span className="text-sm font-bold text-slate-500">ton</span>
-            </div>
-            <div className="text-[11px] text-emerald-800 font-semibold mt-0.5">
-              Média estimada: {metricas.mediaProdutividadeTonHa.toFixed(1)} t/ha
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-            <div className="text-xs font-bold text-slate-500">Custo Total de Manejo & Solo</div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
-              R$ {metricas.custoTotalManejo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Adubação, maquinário e colheita</div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-            <div className="text-xs font-bold text-slate-500">Custo Médio por Hectare</div>
-            <div className="text-2xl sm:text-3xl font-black text-lime-700 mt-1">
-              R$ {metricas.custoMedioPorHa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-500">/ha</span>
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Base acumulada da safra atual</div>
-          </div>
-        </div>
-
-        {/* ABA 1: TALHÕES DO SÍTIO */}
-        {abaAtiva === 'talhoes' && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-              <div>
-                <h3 className="font-extrabold text-slate-900 text-base">
-                  Talhões de Mandioca & Previsão de Colheita
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Acompanhe a variedade, stand de plantas, previsão de colheita e custos de cada gleba
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-extrabold uppercase tracking-wider text-[11px] border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-5">Código / Gleba</th>
-                    <th className="py-3 px-4">Área</th>
-                    <th className="py-3 px-4">Variedade de Mandioca</th>
-                    <th className="py-3 px-4">Plantio / Previsão</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-right">Estimativa Safra</th>
-                    <th className="py-3 px-4 text-right">Custo Acumulado</th>
-                    <th className="py-3 px-5 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {sitio.talhoes.map((talhao) => (
-                    <tr key={talhao.id} className="hover:bg-emerald-50/30 transition-colors">
-                      <td className="py-3.5 px-5">
-                        <div className="font-mono font-black text-slate-900 text-sm">{talhao.codigo}</div>
-                        <div className="text-xs text-emerald-800 font-bold mt-0.5">{talhao.nome}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-800">
-                        {talhao.area_ha.toFixed(1)} ha
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-700 font-medium">
-                        {talhao.variedade_mandioca}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600">
-                        <div>Plantio: {talhao.data_plantio.split('-').reverse().join('/')}</div>
-                        <div className="text-emerald-700 font-bold">Colheita: {talhao.data_previsao_colheita.split('-').reverse().join('/')}</div>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {talhao.status === 'COLHENDO' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            Colhendo
-                          </span>
-                        ) : talhao.status === 'PRONTO_COLHEITA' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-lime-100 text-lime-800 border border-lime-300">
-                            Pronto p/ Colheita
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
-                            Em Desenvolvimento
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono">
-                        <div className="font-black text-slate-900 text-sm">{talhao.toneladas_estimadas} ton</div>
-                        <div className="text-[11px] text-slate-500">({talhao.estimativa_ton_ha} t/ha)</div>
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
-                        R$ {talhao.custo_acumulado_reais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3.5 px-5 text-right">
-                        <button
-                          onClick={() => {
-                            setTalhaoEmEdicao(talhao);
-                            setFormTalhao({
-                              codigo: talhao.codigo,
-                              nome: talhao.nome,
-                              area_ha: talhao.area_ha,
-                              variedade_mandioca: talhao.variedade_mandioca,
-                              data_plantio: talhao.data_plantio,
-                              data_previsao_colheita: talhao.data_previsao_colheita,
-                              status: talhao.status,
-                              estimativa_ton_ha: talhao.estimativa_ton_ha,
-                              toneladas_estimadas: talhao.toneladas_estimadas,
-                              custo_acumulado_reais: talhao.custo_acumulado_reais,
-                              observacoes: talhao.observacoes || ''
-                            });
-                            setModalTalhao(true);
-                          }}
-                          className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
-                          title="Editar Talhão"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ABA 2: APONTAMENTOS DE MANEJO & CUSTO */}
-        {abaAtiva === 'apontamentos' && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-              <div>
-                <h3 className="font-extrabold text-slate-900 text-base">
-                  Apontamentos Operacionais no Campo (Manejo, Insumos e Tratores)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Registro diário de adubações, horas de trator, defensivos e combustível alocados
-                </p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-extrabold uppercase tracking-wider text-[11px] border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-5">Data</th>
-                    <th className="py-3 px-4">Talhão</th>
-                    <th className="py-3 px-4">Tipo de Atividade</th>
-                    <th className="py-3 px-4">Descrição do Trabalho</th>
-                    <th className="py-3 px-4">Responsável</th>
-                    <th className="py-3 px-4 text-center">Horas Trator</th>
-                    <th className="py-3 px-5 text-right">Custo Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {sitio.apontamentos.map((apt) => (
-                    <tr key={apt.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3.5 px-5 font-mono font-bold text-slate-900">
-                        {apt.data.split('-').reverse().join('/')}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-emerald-800">
-                        {apt.talhao_nome}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-800">
-                          {apt.tipo}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-700 max-w-xs font-medium">
-                        <div>{apt.descricao}</div>
-                        {apt.quantidade_utilizada && (
-                          <div className="text-[11px] text-slate-500 font-mono mt-0.5">Insumo: {apt.quantidade_utilizada}</div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600 font-medium">
-                        {apt.responsavel}
-                      </td>
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-800">
-                        {apt.horas_trator ? `${apt.horas_trator}h` : '-'}
-                      </td>
-                      <td className="py-3.5 px-5 text-right font-mono font-black text-slate-900">
-                        R$ {apt.valor_custo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-      </main>
-
-      {/* MODAL NOVO / EDITAR TALHÃO */}
-      {modalTalhao && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-emerald-900/20">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-              <h3 className="text-lg font-black text-slate-900">
-                {talhaoEmEdicao ? 'Editar Talhão' : 'Cadastrar Novo Talhão de Mandioca'}
-              </h3>
               <button
-                onClick={() => setModalTalhao(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                onClick={() => setModalAbastecerTanque(true)}
+                className="text-xs font-bold text-emerald-800 hover:underline cursor-pointer"
               >
-                ✕
+                + Entrada de Litros
               </button>
             </div>
+          </div>
 
-            <form onSubmit={handleSalvarTalhao} className="py-4 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Código do Talhão</label>
-                  <input
-                    type="text"
-                    value={formTalhao.codigo}
-                    onChange={e => setFormTalhao({ ...formTalhao, codigo: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Nome / Gleba</label>
-                  <input
-                    type="text"
-                    value={formTalhao.nome}
-                    onChange={e => setFormTalhao({ ...formTalhao, nome: e.target.value })}
-                    placeholder="Ex: Gleba da Nascente"
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Área (Hectares)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formTalhao.area_ha}
-                    onChange={e => setFormTalhao({ ...formTalhao, area_ha: parseFloat(e.target.value) || 0 })}
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Produtividade Esperada (ton/ha)</label>
-                  <input
-                    type="number"
-                    value={formTalhao.estimativa_ton_ha}
-                    onChange={e => setFormTalhao({ ...formTalhao, estimativa_ton_ha: parseFloat(e.target.value) || 0 })}
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
-                  />
-                </div>
-              </div>
-
+          {/* CARD 2: Total de litros usados nesse mês de combustível no trator */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-start justify-between">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Variedade de Mandioca</label>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Consumo Operacional
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                  Litros Usados no Mês (Trator)
+                </h3>
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                <Tractor className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                  {litrosUsadosNoMes.toLocaleString('pt-BR')}
+                </span>
+                <span className="text-lg font-bold text-blue-600">Litros</span>
+              </div>
+
+              <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
+                <span>Consumo acumulado em Outubro/2026</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Tratores: Valtra A950 & Massey</span>
+              <span className="font-semibold text-slate-700">Média: {(litrosUsadosNoMes / 30).toFixed(1)} L/dia</span>
+            </div>
+          </div>
+
+          {/* CARD 3: Despesas situacionais */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Custos e Peças
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                  Despesas Situacionais
+                </h3>
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+                <DollarSign className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                  R$ {totalDespesasSituacionais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                <span>Combustíveis, peças de reposição e revisões</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>{dados.despesas.length} lançamentos com NF</span>
+              <span className="font-semibold text-emerald-700">100% comprovados</span>
+            </div>
+          </div>
+
+        </section>
+
+        {/* 3. TABELA EM LINHAS COM AS DESPESAS E NOTAS FISCAIS */}
+        <section className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+          
+          {/* Cabeçalho da Tabela e Barra de Busca */}
+          <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base sm:text-lg font-black text-slate-900">
+                Tabela de Despesas Situacionais & Combustível
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Histórico detalhado com data, nome da despesa, produto, quantidade/unidade e comprovante fiscal
+              </p>
+            </div>
+
+            {/* Barra de Filtro e Busca */}
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  value={formTalhao.variedade_mandioca}
-                  onChange={e => setFormTalhao({ ...formTalhao, variedade_mandioca: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
+                  value={busca}
+                  onChange={e => setBusca(e.target.value)}
+                  placeholder="Buscar despesa, produto, NF..."
+                  className="
+                    w-full pl-9 pr-3 py-2 rounded-xl text-xs
+                    border border-slate-200 bg-white
+                    focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600
+                  "
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <select
+                value={filtroTipo}
+                onChange={e => setFiltroTipo(e.target.value)}
+                className="
+                  px-3 py-2 rounded-xl text-xs font-semibold
+                  border border-slate-200 bg-white text-slate-700
+                  focus:outline-none focus:border-emerald-600 cursor-pointer
+                "
+              >
+                <option value="TODOS">Todos os Tipos</option>
+                <option value="COMBUSTIVEL">Combustível</option>
+                <option value="PECA">Peças / Implementos</option>
+                <option value="LUBRIFICANTE">Lubrificantes</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tabela de Despesas em Linhas */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                  <th className="py-3 px-4 sm:px-6">Data</th>
+                  <th className="py-3 px-4">Nome da Despesa</th>
+                  <th className="py-3 px-4">Produto que foi</th>
+                  <th className="py-3 px-4 text-center">Quantidade / Unidade</th>
+                  <th className="py-3 px-4 text-right">Valor Total</th>
+                  <th className="py-3 px-4 sm:px-6 text-center">Ver a Nota</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                {despesasFiltradas.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-slate-400">
+                      Nenhuma despesa encontrada para os critérios selecionados.
+                    </td>
+                  </tr>
+                ) : (
+                  despesasFiltradas.map((desp) => (
+                    <tr
+                      key={desp.id}
+                      className="hover:bg-emerald-50/40 transition-colors group"
+                    >
+                      {/* 1. Data */}
+                      <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{formatarDataBR(desp.data)}</span>
+                        </div>
+                      </td>
+
+                      {/* 2. Nome da Despesa */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900">
+                          {desp.nomeDespesa}
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                          <span className="inline-flex items-center gap-1 font-medium text-emerald-800">
+                            <Tractor className="w-3 h-3 text-emerald-600" />
+                            {desp.maquinaTrator}
+                          </span>
+                          <span>•</span>
+                          <span>{desp.responsavel}</span>
+                        </div>
+                      </td>
+
+                      {/* 3. Produto que foi */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-semibold text-slate-800 flex items-center gap-2">
+                          <span className={`
+                            w-2 h-2 rounded-full shrink-0
+                            ${desp.tipo === 'COMBUSTIVEL' ? 'bg-emerald-600' : desp.tipo === 'PECA' ? 'bg-amber-600' : 'bg-blue-600'}
+                          `} />
+                          <span>{desp.produto}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                          Tipo: {desp.tipo}
+                        </span>
+                      </td>
+
+                      {/* 4. Quantidade / Unidade (se gasolina/diesel: L; se peça: UN) */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <span className={`
+                          inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-xs font-black
+                          ${desp.unidade === 'L' 
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300/60' 
+                            : 'bg-amber-100 text-amber-900 border border-amber-300/60'}
+                        `}>
+                          {desp.quantidade} {desp.unidade}
+                        </span>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          R$ {desp.valorUnitario.toFixed(2)} /{desp.unidade}
+                        </div>
+                      </td>
+
+                      {/* 5. Valor Total */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <span className="font-black text-slate-900 text-sm">
+                          R$ {desp.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+
+                      {/* 6. Ver a Nota */}
+                      <td className="py-3.5 px-4 sm:px-6 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => setNotaSelecionada({ despesa: desp, nota: desp.notaFiscal })}
+                          className="
+                            inline-flex items-center gap-1.5 px-3 py-1.5
+                            rounded-xl bg-emerald-50 hover:bg-emerald-100
+                            border border-emerald-300 text-emerald-900
+                            text-xs font-bold transition-all duration-150
+                            hover:scale-105 active:scale-100 cursor-pointer
+                          "
+                          title={`Ver Nota Fiscal ${desp.notaFiscal.numero}`}
+                        >
+                          <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Ver a Nota</span>
+                        </button>
+                      </td>
+
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Rodapé da Tabela */}
+          <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+            <span>
+              Exibindo <strong>{despesasFiltradas.length}</strong> de <strong>{dados.despesas.length}</strong> registros
+            </span>
+            <div className="flex items-center gap-3">
+              <span className="font-medium text-slate-700">
+                Total Filtrado: <strong>R$ {despesasFiltradas.reduce((a, b) => a + b.valorTotal, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+              </span>
+            </div>
+          </div>
+
+        </section>
+
+      </main>
+
+      {/* ============================================================== */}
+      {/* MODAL: VER A NOTA FISCAL (DANFE / COMPROVANTE ELETRÔNICO) */}
+      {/* ============================================================== */}
+      {notaSelecionada && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto animate-in fade-in"
+          onClick={() => setNotaSelecionada(null)}
+        >
+          <div
+            className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-300 overflow-hidden my-8"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Topo do Modal de Nota */}
+            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Data do Plantio</label>
-                  <input
-                    type="date"
-                    value={formTalhao.data_plantio}
-                    onChange={e => setFormTalhao({ ...formTalhao, data_plantio: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Previsão de Colheita</label>
-                  <input
-                    type="date"
-                    value={formTalhao.data_previsao_colheita}
-                    onChange={e => setFormTalhao({ ...formTalhao, data_previsao_colheita: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
-                  />
+                  <h3 className="font-black text-sm sm:text-base leading-tight">
+                    Documento Fiscal Eletrônico (DANFE / NF-e)
+                  </h3>
+                  <span className="text-[11px] text-slate-400">
+                    Número: {notaSelecionada.nota.numero} · Série: {notaSelecionada.nota.serie}
+                  </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  title="Imprimir Nota Fiscal"
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setNotaSelecionada(null)}
+                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  title="Fechar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Corpo da Nota Fiscal em Formato Realista */}
+            <div className="p-6 sm:p-8 space-y-5 text-xs text-slate-800 font-sans max-h-[80vh] overflow-y-auto">
+              
+              {/* Box Emitente e Chave */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-slate-300 rounded-xl p-4 bg-slate-50/50">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Status do Talhão</label>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">EMITENTE</div>
+                  <div className="text-sm font-black text-slate-900 mt-0.5">
+                    {notaSelecionada.nota.emitente}
+                  </div>
+                  <div className="text-[11px] text-slate-600 mt-1">
+                    CNPJ: <strong>{notaSelecionada.nota.cnpjEmitente}</strong>
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Inscrição Estadual: 908.241.192-PR · Jacarezinho / PR
+                  </div>
+                </div>
+
+                <div className="border-t md:border-t-0 md:border-l border-slate-200 md:pl-4 pt-3 md:pt-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">DANFE / NF-E</div>
+                  <div className="text-sm font-bold text-emerald-800">
+                    NF-e Nº {notaSelecionada.nota.numero}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    Data Emissão: <strong>{notaSelecionada.nota.dataEmissao}</strong>
+                  </div>
+                  <div className="mt-2 p-2 bg-slate-100 rounded text-[10px] font-mono text-slate-700 break-all">
+                    Chave de Acesso: {notaSelecionada.nota.chaveAcesso}
+                  </div>
+                </div>
+              </div>
+
+              {/* Box Destinatário */}
+              <div className="border border-slate-300 rounded-xl p-4 bg-white">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">DESTINATÁRIO / TOMADOR</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                  <div>
+                    <div className="font-bold text-slate-900">{notaSelecionada.nota.destinatario}</div>
+                    <div className="text-[11px] text-slate-600">CNPJ: {notaSelecionada.nota.cnpjDestinatario}</div>
+                  </div>
+                  <div className="text-slate-600 text-[11px]">
+                    <div>Endereço: Rodovia PR-431, Km 12 - Zona Rural</div>
+                    <div>Município: Jacarezinho / PR · CEP: 86400-000</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabela de Itens Fiscais */}
+              <div>
+                <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
+                  DADOS DO PRODUTO / SERVIÇO
+                </div>
+                <div className="border border-slate-300 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 border-b border-slate-300 text-[10px] font-bold uppercase text-slate-600">
+                      <tr>
+                        <th className="py-2.5 px-3">Descrição do Produto</th>
+                        <th className="py-2.5 px-2 text-center">Unid.</th>
+                        <th className="py-2.5 px-2 text-center">Qtd.</th>
+                        <th className="py-2.5 px-3 text-right">Preço Unit.</th>
+                        <th className="py-2.5 px-3 text-right">Valor Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {notaSelecionada.nota.itens.map((item, idx) => (
+                        <tr key={idx} className="bg-white">
+                          <td className="py-3 px-3 font-semibold text-slate-900">
+                            {item.descricao}
+                          </td>
+                          <td className="py-3 px-2 text-center font-bold text-emerald-800">
+                            {item.unidade}
+                          </td>
+                          <td className="py-3 px-2 text-center font-bold">
+                            {item.quantidade}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            R$ {item.precoUnitario.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-3 text-right font-black text-slate-900">
+                            R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Informações de Pagamento e Totais */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="border border-slate-300 rounded-xl p-3.5 bg-slate-50/50">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">FORMA DE PAGAMENTO</span>
+                  <div className="font-bold text-slate-900 mt-1">{notaSelecionada.nota.formaPagamento}</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    {notaSelecionada.nota.observacoes || 'Operação autorizada pela SEFAZ.'}
+                  </div>
+                </div>
+
+                <div className="border border-emerald-300 rounded-xl p-3.5 bg-emerald-50 flex flex-col justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">VALOR TOTAL DA NOTA</span>
+                  <div className="text-2xl font-black text-emerald-950 mt-1">
+                    R$ {notaSelecionada.despesa.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <span className="text-[10px] text-emerald-700 mt-0.5">Comprovante válido e auditado</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Rodapé do Modal de Nota */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">
+                Despesa associada: <strong>{notaSelecionada.despesa.nomeDespesa}</strong>
+              </span>
+              <button
+                onClick={() => setNotaSelecionada(null)}
+                className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white transition-colors cursor-pointer"
+              >
+                Fechar Nota
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: LANÇAR NOVA DESPESA / ABASTECIMENTO */}
+      {/* ============================================================== */}
+      {modalNovaDespesa && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto animate-in fade-in"
+          onClick={() => setModalNovaDespesa(false)}
+        >
+          <div
+            className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-[#022013] text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Plus className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-black text-base">Lançar Nova Despesa no Sítio</h3>
+              </div>
+              <button
+                onClick={() => setModalNovaDespesa(false)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarDespesa} className="p-6 space-y-4 text-xs">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Data da Despesa</label>
+                  <input
+                    type="date"
+                    required
+                    value={formDespesa.data}
+                    onChange={e => setFormDespesa({ ...formDespesa, data: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tipo de Despesa</label>
                   <select
-                    value={formTalhao.status}
-                    onChange={e => setFormTalhao({ ...formTalhao, status: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none bg-white font-bold"
+                    value={formDespesa.tipo}
+                    onChange={e => {
+                      const novoTipo = e.target.value as DespesaSitio['tipo'];
+                      const ehCombustivel = novoTipo === 'COMBUSTIVEL';
+                      setFormDespesa(prev => ({
+                        ...prev,
+                        tipo: novoTipo,
+                        unidade: ehCombustivel ? 'L' : 'UN',
+                        produto: ehCombustivel ? 'Diesel S10' : prev.produto
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   >
-                    <option value="EM_DESENVOLVIMENTO">Em Desenvolvimento</option>
-                    <option value="PRONTO_COLHEITA">Pronto para Colheita</option>
-                    <option value="COLHENDO">Colhendo</option>
-                    <option value="COLHIDO">Colhido</option>
-                    <option value="PREPARO_SOLO">Preparo do Solo</option>
+                    <option value="COMBUSTIVEL">Combustível (Abastecimento)</option>
+                    <option value="PECA">Peça de Reposição</option>
+                    <option value="LUBRIFICANTE">Lubrificante / Óleo</option>
+                    <option value="MANUTENCAO">Manutenção Mecânica</option>
+                    <option value="OUTROS">Outros</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nome da Despesa</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Abastecimento Trator Valtra - Plantio"
+                  value={formDespesa.nomeDespesa}
+                  onChange={e => setFormDespesa({ ...formDespesa, nomeDespesa: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Custo Acumulado Inicial (R$)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Produto que foi</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Diesel S10, Gasolina, Filtro de Óleo..."
+                    value={formDespesa.produto}
+                    onChange={e => setFormDespesa({ ...formDespesa, produto: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Trator / Máquina</label>
+                  <select
+                    value={formDespesa.maquinaTrator}
+                    onChange={e => setFormDespesa({ ...formDespesa, maquinaTrator: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                  >
+                    <option value="Trator Valtra A950">Trator Valtra A950</option>
+                    <option value="Trator Massey Ferguson 4292">Trator Massey Ferguson 4292</option>
+                    <option value="Roçadeira Husqvarna & Motosserra">Roçadeira Husqvarna & Motosserra</option>
+                    <option value="Caminhão Caçamba Mandioca">Caminhão Caçamba Mandioca</option>
+                    <option value="Geral (Sítio / Implementos)">Geral (Sítio / Implementos)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Quantidade</label>
                   <input
                     type="number"
-                    value={formTalhao.custo_acumulado_reais}
-                    onChange={e => setFormTalhao({ ...formTalhao, custo_acumulado_reais: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
+                    step="any"
+                    required
+                    min="1"
+                    value={formDespesa.quantidade}
+                    onChange={e => handleAtualizarPrecoUnitario(Number(e.target.value), formDespesa.valorUnitario)}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Unidade</label>
+                  <select
+                    value={formDespesa.unidade}
+                    onChange={e => setFormDespesa({ ...formDespesa, unidade: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                  >
+                    <option value="L">Litros (L)</option>
+                    <option value="UN">Unidades (UN)</option>
+                    <option value="JG">Jogo (JG)</option>
+                    <option value="CX">Caixa (CX)</option>
+                    <option value="KG">Quilos (KG)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Preço Unitário (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formDespesa.valorUnitario}
+                    onChange={e => handleAtualizarPrecoUnitario(formDespesa.quantidade, Number(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-2">
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+                <span className="font-bold text-emerald-900">Valor Total Calculado:</span>
+                <span className="text-base font-black text-emerald-950">
+                  R$ {formDespesa.valorTotal.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Informações da Nota Fiscal */}
+              <div className="border-t border-slate-200 pt-3 space-y-3">
+                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  Dados da Nota Fiscal / Comprovante
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Número da NF-e</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 048.990"
+                      value={formDespesa.numeroNF}
+                      onChange={e => setFormDespesa({ ...formDespesa, numeroNF: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Fornecedor / Emitente</label>
+                    <input
+                      type="text"
+                      value={formDespesa.emitenteNF}
+                      onChange={e => setFormDespesa({ ...formDespesa, emitenteNF: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Abater do Tanque (se for combustível) */}
+              {formDespesa.tipo === 'COMBUSTIVEL' && formDespesa.unidade === 'L' && (
+                <label className="flex items-center gap-2 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={formDespesa.abaterDoTanque}
+                    onChange={e => setFormDespesa({ ...formDespesa, abaterDoTanque: e.target.checked })}
+                    className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-700 font-medium">
+                    Abater <strong>{formDespesa.quantidade} Litros</strong> do total disponível no tanque da fazenda
+                  </span>
+                </label>
+              )}
+
+              <div className="pt-3 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setModalTalhao(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer"
+                  onClick={() => setModalNovaDespesa(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-slate-700 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md cursor-pointer"
                 >
-                  Salvar Talhão
+                  Confirmar Lançamento
                 </button>
               </div>
+
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL NOVO APONTAMENTO DE MANEJO / CUSTO */}
-      {modalApontamento && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-emerald-900/20">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-              <h3 className="text-lg font-black text-slate-900">
-                Lançar Apontamento Operacional & Custo de Manejo
-              </h3>
+      {/* ============================================================== */}
+      {/* MODAL: ABASTECER TANQUE DA FAZENDA (+ Litros Disponíveis) */}
+      {/* ============================================================== */}
+      {modalAbastecerTanque && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto animate-in fade-in"
+          onClick={() => setModalAbastecerTanque(false)}
+        >
+          <div
+            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-[#022013] text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Fuel className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-black text-base">Abastecer Tanque da Fazenda</h3>
+              </div>
               <button
-                onClick={() => setModalApontamento(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                onClick={() => setModalAbastecerTanque(false)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSalvarApontamento} className="py-4 space-y-4 text-xs">
+            <form onSubmit={handleConfirmarEntradaTanque} className="p-6 space-y-4 text-xs">
+              <p className="text-slate-600">
+                Adicione litros de combustível recebidos pelo caminhão comboio ou fornecedor para recarregar o reservatório central do sítio.
+              </p>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Litros a Adicionar</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    required
+                    value={litrosEntradaTanque}
+                    onChange={e => setLitrosEntradaTanque(Number(e.target.value))}
+                    className="w-full pl-3 pr-12 py-2.5 border rounded-xl border-slate-200 text-base font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-emerald-700">Litros</span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Talhão de Destino</label>
-                  <select
-                    value={formApontamento.talhao_id}
-                    onChange={e => {
-                      const t = sitio.talhoes.find(item => item.id === e.target.value);
-                      setFormApontamento({
-                        ...formApontamento,
-                        talhao_id: e.target.value,
-                        talhao_nome: t ? t.nome : ''
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none bg-white font-bold"
-                  >
-                    {sitio.talhoes.map(t => (
-                      <option key={t.id} value={t.id}>{t.codigo} - {t.nome}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Tipo de Manejo</label>
-                  <select
-                    value={formApontamento.tipo}
-                    onChange={e => setFormApontamento({ ...formApontamento, tipo: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none bg-white font-bold"
-                  >
-                    <option value="ADUBACAO">Adubação de Base / Cobertura</option>
-                    <option value="PLANTIO">Plantio de Ramas</option>
-                    <option value="PULVERIZACAO">Pulverização / Defensivos</option>
-                    <option value="CAPINA_MANEJO">Capina / Controle de Daninhas</option>
-                    <option value="COLHEITA">Colheita & Carregamento</option>
-                    <option value="DESPESA_COMBUSTIVEL">Diesel / Combustível</option>
-                    <option value="MANUTENCAO_TRATOR">Manutenção de Trator / Equipamento</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Descrição do Serviço / Atividade</label>
-                <input
-                  type="text"
-                  value={formApontamento.descricao}
-                  onChange={e => setFormApontamento({ ...formApontamento, descricao: e.target.value })}
-                  placeholder="Ex: Aplicação de 400kg de adubo NPK 04-14-08 na área da nascente"
-                  required
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Custo Total (R$)</label>
-                  <input
-                    type="number"
-                    value={formApontamento.valor_custo}
-                    onChange={e => setFormApontamento({ ...formApontamento, valor_custo: parseFloat(e.target.value) || 0 })}
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Horas de Trator</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={formApontamento.horas_trator || 0}
-                    onChange={e => setFormApontamento({ ...formApontamento, horas_trator: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Responsável</label>
+                  <label className="block font-bold text-slate-700 mb-1">Fornecedor / Distribuidora</label>
                   <input
                     type="text"
-                    value={formApontamento.responsavel}
-                    onChange={e => setFormApontamento({ ...formApontamento, responsavel: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
+                    value={fornecedorTanque}
+                    onChange={e => setFornecedorTanque(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 text-xs focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Nota Fiscal de Compra</label>
+                  <input
+                    type="text"
+                    value={notaTanque}
+                    onChange={e => setNotaTanque(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 text-xs focus:outline-none focus:border-emerald-600"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Insumo Utilizado / Detalhes</label>
-                <input
-                  type="text"
-                  value={formApontamento.quantidade_utilizada || ''}
-                  onChange={e => setFormApontamento({ ...formApontamento, quantidade_utilizada: e.target.value })}
-                  placeholder="Ex: 8 sacos adubo, 60L diesel"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none"
-                />
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900">
+                <div className="text-[11px] font-semibold">Novo Saldo Disponível:</div>
+                <div className="text-xl font-black mt-0.5">
+                  {(dados.totalLitrosDisponivel + Number(litrosEntradaTanque)).toLocaleString('pt-BR')} Litros
+                </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-2">
+              <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setModalApontamento(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer"
+                  onClick={() => setModalAbastecerTanque(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-slate-700 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-lime-600 hover:bg-lime-700 text-white font-bold cursor-pointer shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md cursor-pointer"
                 >
-                  Confirmar Apontamento
+                  Confirmar Entrada
                 </button>
               </div>
             </form>
