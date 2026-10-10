@@ -26,14 +26,14 @@ export interface NotaFiscalDespesa {
 export interface DespesaSitio {
   id: string;
   data: string; // YYYY-MM-DD
-  nomeDespesa: string; // Ex: 'Abastecimento Trator Valtra', 'Troca de Óleo e Filtros'
+  nomeDespesa: string; // Ex: 'Abastecimento Trator Valtra', 'Compra Diesel Tanque Central'
   tipo: 'COMBUSTIVEL' | 'PECA' | 'MANUTENCAO' | 'LUBRIFICANTE' | 'OUTROS';
   produto: string; // Ex: 'Diesel S10', 'Gasolina Comum', 'Filtro de Óleo Lubrificante'
   quantidade: number; // 120, 2, 1
   unidade: string; // 'L' (litros) ou 'UN' (unidades), 'JG', 'CX'
   valorUnitario: number;
   valorTotal: number;
-  maquinaTrator: string; // Ex: 'Trator Valtra A950', 'Trator Massey Ferguson 4292'
+  maquinaTrator: string; // Ex: 'Trator Valtra A950', 'Tanque Central do Sítio'
   responsavel: string; // Ex: 'Zé do Trator (Operador)'
   notaFiscal: NotaFiscalDespesa;
 }
@@ -45,9 +45,43 @@ export interface ControleSitioState {
 }
 
 export const CONTROLE_SITIO_INICIAL: ControleSitioState = {
-  totalLitrosDisponivel: 1840, // 1.840 Litros disponíveis no tanque do sítio
+  totalLitrosDisponivel: 2840, // 2.840 Litros disponíveis no tanque do sítio
   capacidadeTanqueLitros: 5000,
   despesas: [
+    {
+      id: 'desp_tanque_01',
+      data: '2026-10-08',
+      nomeDespesa: 'Compra de Combustível - Carga Tanque Central da Fazenda',
+      tipo: 'COMBUSTIVEL',
+      produto: 'Diesel S10',
+      quantidade: 2000,
+      unidade: 'L',
+      valorUnitario: 5.75,
+      valorTotal: 11500.00,
+      maquinaTrator: 'Tanque Central da Fazenda (Estoque Geral)',
+      responsavel: 'Valdecir (Mestre de Campo)',
+      notaFiscal: {
+        numero: '091.240',
+        serie: '1',
+        chaveAcesso: '4126 1009 1240 0001 8855 0010 0009 1240 7712 9014',
+        dataEmissao: '08/10/2026 09:15:00',
+        emitente: 'Distribuidora Rota do Petróleo & Agronegócio Ltda',
+        cnpjEmitente: '11.892.301/0001-92',
+        destinatario: 'Sítio Santana - Grupo ENO Agroindústria',
+        cnpjDestinatario: '08.721.432/0001-90',
+        formaPagamento: 'Faturado 30 Dias (Boleto Bancário)',
+        itens: [
+          {
+            descricao: 'ÓLEO DIESEL B S10 A GRANEL - CAMINHÃO TANQUE',
+            quantidade: 2000,
+            unidade: 'L',
+            precoUnitario: 5.75,
+            total: 11500.00
+          }
+        ],
+        observacoes: 'Descarga efetuada no reservatório aéreo central da fazenda.'
+      }
+    },
     {
       id: 'desp_01',
       data: '2026-10-09',
@@ -289,7 +323,7 @@ export const CONTROLE_SITIO_INICIAL: ControleSitioState = {
   ]
 };
 
-const STORAGE_KEY_SITIO_DESPESAS = 'grupo_eno_sitio_controle_despesas_v2';
+const STORAGE_KEY_SITIO_DESPESAS = 'grupo_eno_sitio_controle_despesas_v3';
 
 export function carregarControleSitio(): ControleSitioState {
   try {

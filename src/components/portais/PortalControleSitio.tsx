@@ -11,16 +11,12 @@ import {
   CheckCircle2,
   X,
   Printer,
-  Download,
   Calendar,
   Layers,
   Wrench,
-  ShieldCheck,
   AlertCircle,
   Truck,
-  Droplet,
-  ExternalLink,
-  ChevronDown
+  Droplet
 } from 'lucide-react';
 import {
   DespesaSitio,
@@ -45,30 +41,50 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     nota: NotaFiscalDespesa;
   } | null>(null);
 
-  // Modal de Nova Despesa
-  const [modalNovaDespesa, setModalNovaDespesa] = useState(false);
-  const [formDespesa, setFormDespesa] = useState({
+  // 1. Modal Entrada de Litros (Abastecer Tanque de Combustível da Fazenda)
+  const [modalEntradaLitros, setModalEntradaLitros] = useState(false);
+  const [formEntradaTanque, setFormEntradaTanque] = useState({
     data: new Date().toISOString().split('T')[0],
-    nomeDespesa: '',
-    tipo: 'COMBUSTIVEL' as DespesaSitio['tipo'],
     produto: 'Diesel S10',
-    quantidade: 100,
-    unidade: 'L',
-    valorUnitario: 5.89,
-    valorTotal: 589.00,
-    maquinaTrator: 'Trator Valtra A950',
-    responsavel: 'Valdecir (Mestre de Campo)',
+    quantidadeLitros: 1000,
+    precoLitro: 5.75,
+    valorTotal: 5750.00,
+    fornecedor: 'Distribuidora Rota do Petróleo & Agronegócio Ltda',
+    cnpjFornecedor: '11.892.301/0001-92',
     numeroNF: '',
-    emitenteNF: 'Posto Rota do Agronegócio Ltda',
-    cnpjEmitente: '14.892.102/0001-44',
-    abaterDoTanque: true
+    observacoes: 'Descarga de combustível no reservatório central do sítio.'
   });
 
-  // Modal de Abastecer Tanque do Sítio
-  const [modalAbastecerTanque, setModalAbastecerTanque] = useState(false);
-  const [litrosEntradaTanque, setLitrosEntradaTanque] = useState<number>(1000);
-  const [fornecedorTanque, setFornecedorTanque] = useState('Distribuidora Petrobras / Ipiranga');
-  const [notaTanque, setNotaTanque] = useState('NF-e 089.442');
+  // 2. Modal Lançar Litros no Trator (Abastecer Trator / Consumo de Combustível)
+  const [modalAbastecerTrator, setModalAbastecerTrator] = useState(false);
+  const [formTrator, setFormTrator] = useState({
+    data: new Date().toISOString().split('T')[0],
+    maquinaTrator: 'Trator Valtra A950',
+    responsavel: 'Valdecir (Mestre de Campo)',
+    produto: 'Diesel S10',
+    quantidadeLitros: 120,
+    custoLitro: 5.89,
+    operacao: 'Aração e Preparo do Solo para Mandiocultura',
+    numeroNF: ''
+  });
+
+  // 3. Modal Lançar Despesa Situacional (Peças / Serviços / Manutenção)
+  const [modalDespesaSituacional, setModalDespesaSituacional] = useState(false);
+  const [formSituacional, setFormSituacional] = useState({
+    data: new Date().toISOString().split('T')[0],
+    nomeDespesa: '',
+    tipo: 'PECA' as DespesaSitio['tipo'],
+    produto: '',
+    quantidade: 1,
+    unidade: 'UN',
+    valorUnitario: 150.00,
+    valorTotal: 150.00,
+    maquinaTrator: 'Trator Valtra A950',
+    responsavel: 'Marcos Mecânico',
+    numeroNF: '',
+    fornecedor: 'TratorSul Peças e Implementos Agrícolas',
+    cnpjFornecedor: '22.341.988/0001-12'
+  });
 
   useEffect(() => {
     const handleUpdate = () => setDados(carregarControleSitio());
@@ -76,22 +92,26 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     return () => window.removeEventListener('sitio_controle_despesas_updated', handleUpdate);
   }, []);
 
-  // Cálculos dos 3 Cards Solicitados:
+  // Cálculos Dinâmicos dos Cards:
   // 1. Total de litros disponível no tanque do sítio
   const totalLitrosDisponivel = dados.totalLitrosDisponivel;
-  const capacidadeTanque = dados.capacidadeTanqueLitros || 5000;
-  const porcentagemTanque = Math.min(100, Math.round((totalLitrosDisponivel / capacidadeTanque) * 100));
 
-  // Mês e Ano corrente para cálculo mensal (YYYY-MM)
-  const mesAtualKey = new Date().toISOString().slice(0, 7); // ex: "2026-10"
+  // Total em valor de combustível comprado
+  const totalCombustivelCompradoValor = useMemo(() => {
+    return dados.despesas
+      .filter(d => d.tipo === 'COMBUSTIVEL' || d.unidade === 'L')
+      .reduce((acc, d) => acc + (Number(d.valorTotal) || 0), 0);
+  }, [dados.despesas]);
 
   // 2. Total de litros usados nesse mês de combustível no trator
+  const mesAtualKey = new Date().toISOString().slice(0, 7); // YYYY-MM
   const litrosUsadosNoMes = useMemo(() => {
     return dados.despesas
       .filter(d => {
         const ehMesAtual = d.data.startsWith(mesAtualKey);
-        const ehCombustivelTrator = d.unidade === 'L' || d.tipo === 'COMBUSTIVEL';
-        return ehMesAtual && ehCombustivelTrator;
+        const ehCombustivel = d.unidade === 'L' || d.tipo === 'COMBUSTIVEL';
+        const ehUsoTrator = !d.nomeDespesa.toLowerCase().includes('compra de combustível');
+        return ehMesAtual && ehCombustivel && ehUsoTrator;
       })
       .reduce((acc, d) => acc + (Number(d.quantidade) || 0), 0);
   }, [dados.despesas, mesAtualKey]);
@@ -116,86 +136,170 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     });
   }, [dados.despesas, busca, filtroTipo]);
 
-  // Manipular alteração de quantidade / valor unitário no formulário
-  const handleAtualizarPrecoUnitario = (qtd: number, vlrUnit: number) => {
-    setFormDespesa(prev => ({
-      ...prev,
-      quantidade: qtd,
-      valorUnitario: vlrUnit,
-      valorTotal: Number((qtd * vlrUnit).toFixed(2))
-    }));
-  };
-
-  // Salvar Nova Despesa
-  const handleSalvarDespesa = (e: React.FormEvent) => {
+  // AÇÃO 1: Entrada de Litros (Abastecer Tanque do Sítio)
+  // Lança a despesa do combustível, adiciona no valor total de combustível comprado e adiciona nos litros disponíveis!
+  const handleConfirmarEntradaLitros = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const numeroNotaFormatado = formDespesa.numeroNF.trim() || `NF-${Math.floor(10000 + Math.random() * 90000)}`;
+    const qtdLitros = Number(formEntradaTanque.quantidadeLitros);
+    const precoLitro = Number(formEntradaTanque.precoLitro);
+    const totalCalculado = Number((qtdLitros * precoLitro).toFixed(2));
+    const numeroNF = formEntradaTanque.numeroNF.trim() || `NF-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    const novaDespesa: DespesaSitio = {
-      id: `desp_${Date.now()}`,
-      data: formDespesa.data,
-      nomeDespesa: formDespesa.nomeDespesa || `${formDespesa.tipo === 'COMBUSTIVEL' ? 'Abastecimento' : 'Compra'} - ${formDespesa.produto}`,
-      tipo: formDespesa.tipo,
-      produto: formDespesa.produto,
-      quantidade: Number(formDespesa.quantidade),
-      unidade: formDespesa.unidade,
-      valorUnitario: Number(formDespesa.valorUnitario),
-      valorTotal: Number(formDespesa.valorTotal),
-      maquinaTrator: formDespesa.maquinaTrator,
-      responsavel: formDespesa.responsavel,
+    const novaDespesaEntrada: DespesaSitio = {
+      id: `desp_tanque_${Date.now()}`,
+      data: formEntradaTanque.data,
+      nomeDespesa: `Compra de Combustível - Tanque Central (${qtdLitros} L)`,
+      tipo: 'COMBUSTIVEL',
+      produto: formEntradaTanque.produto,
+      quantidade: qtdLitros,
+      unidade: 'L',
+      valorUnitario: precoLitro,
+      valorTotal: totalCalculado,
+      maquinaTrator: 'Tanque Central da Fazenda',
+      responsavel: 'Valdecir (Mestre de Campo)',
       notaFiscal: {
-        numero: numeroNotaFormatado,
+        numero: numeroNF,
         serie: '1',
-        chaveAcesso: `4126 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 0001 9255 0010 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 8172`,
+        chaveAcesso: `4126 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 0001 8855 0010 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 9014`,
         dataEmissao: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`,
-        emitente: formDespesa.emitenteNF,
-        cnpjEmitente: formDespesa.cnpjEmitente,
+        emitente: formEntradaTanque.fornecedor,
+        cnpjEmitente: formEntradaTanque.cnpjFornecedor,
         destinatario: 'Sítio Santana - Grupo ENO Agroindústria',
         cnpjDestinatario: '08.721.432/0001-90',
-        formaPagamento: 'Faturado (Boleto Bancário)',
+        formaPagamento: 'Faturado 30 Dias (Boleto Bancário)',
         itens: [
           {
-            descricao: formDespesa.produto.toUpperCase(),
-            quantidade: Number(formDespesa.quantidade),
-            unidade: formDespesa.unidade,
-            precoUnitario: Number(formDespesa.valorUnitario),
-            total: Number(formDespesa.valorTotal)
+            descricao: `ÓLEO DIESEL ${formEntradaTanque.produto.toUpperCase()} A GRANEL`,
+            quantidade: qtdLitros,
+            unidade: 'L',
+            precoUnitario: precoLitro,
+            total: totalCalculado
           }
         ],
-        observacoes: `Lançado no Controle do Sítio. Aplicação: ${formDespesa.maquinaTrator}`
+        observacoes: formEntradaTanque.observacoes
       }
     };
 
-    let novoTotalTanque = dados.totalLitrosDisponivel;
-    if (formDespesa.tipo === 'COMBUSTIVEL' && formDespesa.unidade === 'L' && formDespesa.abaterDoTanque) {
-      novoTotalTanque = Math.max(0, novoTotalTanque - Number(formDespesa.quantidade));
-    }
+    const novosDados: ControleSitioState = {
+      ...dados,
+      totalLitrosDisponivel: dados.totalLitrosDisponivel + qtdLitros,
+      despesas: [novaDespesaEntrada, ...dados.despesas]
+    };
+
+    salvarControleSitio(novosDados);
+    setDados(novosDados);
+    setModalEntradaLitros(false);
+  };
+
+  // AÇÃO 2: Lançar Litros no Trator (Consumo de Combustível no Trator)
+  // Abate os litros do tanque disponível, adiciona aos litros usados no trator e registra na tabela!
+  const handleConfirmarAbastecerTrator = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const qtdLitros = Number(formTrator.quantidadeLitros);
+    const custoLitro = Number(formTrator.custoLitro);
+    const totalCalculado = Number((qtdLitros * custoLitro).toFixed(2));
+    const numeroNF = formTrator.numeroNF.trim() || `ABAST-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const novaDespesaTrator: DespesaSitio = {
+      id: `desp_trator_${Date.now()}`,
+      data: formTrator.data,
+      nomeDespesa: `Abastecimento ${formTrator.maquinaTrator} - ${formTrator.operacao}`,
+      tipo: 'COMBUSTIVEL',
+      produto: formTrator.produto,
+      quantidade: qtdLitros,
+      unidade: 'L',
+      valorUnitario: custoLitro,
+      valorTotal: totalCalculado,
+      maquinaTrator: formTrator.maquinaTrator,
+      responsavel: formTrator.responsavel,
+      notaFiscal: {
+        numero: numeroNF,
+        serie: '1',
+        chaveAcesso: `4126 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 0001 9255 0010 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 8172`,
+        dataEmissao: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`,
+        emitente: 'Posto Rota do Agronegócio / Reserva do Sítio',
+        cnpjEmitente: '14.892.102/0001-44',
+        destinatario: 'Sítio Santana - Grupo ENO Agroindústria',
+        cnpjDestinatario: '08.721.432/0001-90',
+        formaPagamento: 'Retirada Direta Tanque da Fazenda',
+        itens: [
+          {
+            descricao: `COMBUSTÍVEL AGRÍCOLA ${formTrator.produto.toUpperCase()} PARA ${formTrator.maquinaTrator.toUpperCase()}`,
+            quantidade: qtdLitros,
+            unidade: 'L',
+            precoUnitario: custoLitro,
+            total: totalCalculado
+          }
+        ],
+        observacoes: `Operação agrícola: ${formTrator.operacao}. Operador: ${formTrator.responsavel}`
+      }
+    };
 
     const novosDados: ControleSitioState = {
       ...dados,
-      totalLitrosDisponivel: novoTotalTanque,
+      totalLitrosDisponivel: Math.max(0, dados.totalLitrosDisponivel - qtdLitros),
+      despesas: [novaDespesaTrator, ...dados.despesas]
+    };
+
+    salvarControleSitio(novosDados);
+    setDados(novosDados);
+    setModalAbastecerTrator(false);
+  };
+
+  // AÇÃO 3: Lançar Despesa Situacional (Peças / Oficina / Lubrificantes)
+  const handleConfirmarDespesaSituacional = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const qtd = Number(formSituacional.quantidade);
+    const vlrUnit = Number(formSituacional.valorUnitario);
+    const totalCalculado = Number((qtd * vlrUnit).toFixed(2));
+    const numeroNF = formSituacional.numeroNF.trim() || `NF-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const novaDespesa: DespesaSitio = {
+      id: `desp_sit_${Date.now()}`,
+      data: formSituacional.data,
+      nomeDespesa: formSituacional.nomeDespesa || `${formSituacional.produto} para ${formSituacional.maquinaTrator}`,
+      tipo: formSituacional.tipo,
+      produto: formSituacional.produto,
+      quantidade: qtd,
+      unidade: formSituacional.unidade,
+      valorUnitario: vlrUnit,
+      valorTotal: totalCalculado,
+      maquinaTrator: formSituacional.maquinaTrator,
+      responsavel: formSituacional.responsavel,
+      notaFiscal: {
+        numero: numeroNF,
+        serie: '1',
+        chaveAcesso: `4126 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 0001 8855 0020 ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} 2011`,
+        dataEmissao: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`,
+        emitente: formSituacional.fornecedor,
+        cnpjEmitente: formSituacional.cnpjFornecedor,
+        destinatario: 'Sítio Santana - Grupo ENO Agroindústria',
+        cnpjDestinatario: '08.721.432/0001-90',
+        formaPagamento: 'Faturado / À Vista',
+        itens: [
+          {
+            descricao: formSituacional.produto.toUpperCase(),
+            quantidade: qtd,
+            unidade: formSituacional.unidade,
+            precoUnitario: vlrUnit,
+            total: totalCalculado
+          }
+        ],
+        observacoes: `Peça/serviço aplicado em: ${formSituacional.maquinaTrator}`
+      }
+    };
+
+    const novosDados: ControleSitioState = {
+      ...dados,
       despesas: [novaDespesa, ...dados.despesas]
     };
 
     salvarControleSitio(novosDados);
     setDados(novosDados);
-    setModalNovaDespesa(false);
-  };
-
-  // Entrada de Litros no Tanque da Fazenda
-  const handleConfirmarEntradaTanque = (e: React.FormEvent) => {
-    e.preventDefault();
-    const novosLitros = dados.totalLitrosDisponivel + Number(litrosEntradaTanque);
-
-    const novosDados: ControleSitioState = {
-      ...dados,
-      totalLitrosDisponivel: novosLitros
-    };
-
-    salvarControleSitio(novosDados);
-    setDados(novosDados);
-    setModalAbastecerTanque(false);
+    setModalDespesaSituacional(false);
   };
 
   const formatarDataBR = (dataIso: string) => {
@@ -247,33 +351,18 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <button
-              onClick={() => setModalAbastecerTanque(true)}
+              onClick={() => setModalEntradaLitros(true)}
               className="
                 inline-flex items-center gap-2
-                rounded-xl bg-emerald-800/80 hover:bg-emerald-700
-                border border-emerald-600/50
-                px-3.5 py-2 text-xs font-bold text-emerald-100
-                transition-all cursor-pointer shadow-xs
-              "
-            >
-              <Fuel className="w-4 h-4 text-emerald-300" />
-              <span className="hidden sm:inline">Abastecer Tanque</span>
-              <span className="sm:hidden">+ Tanque</span>
-            </button>
-
-            <button
-              onClick={() => setModalNovaDespesa(true)}
-              className="
-                inline-flex items-center gap-2
-                rounded-xl bg-emerald-500 hover:bg-emerald-400
-                px-4 py-2 text-xs sm:text-sm font-extrabold text-slate-950
+                rounded-xl bg-emerald-600 hover:bg-emerald-500
+                px-4 py-2 text-xs sm:text-sm font-extrabold text-white
                 shadow-md shadow-emerald-950/30
                 transition-all duration-150
                 hover:-translate-y-0.5 cursor-pointer
               "
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Lançar Despesa</span>
+              <span>Entrada de Litros</span>
             </button>
           </div>
 
@@ -283,131 +372,150 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
 
-        {/* 2. OS 3 CARDS SOLICITADOS */}
+        {/* 2. OS 3 CARDS DE ACORDO COM AS ESPECIFICAÇÕES EXATAS */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
           
-          {/* CARD 1: Total de litros disponível */}
+          {/* ========================================================= */}
+          {/* CARD 1: Total de litros disponível & Valor Comprado */}
+          {/* (Sem 'reserva da fazenda', sem 'diesel s10 e gasolina',   */}
+          {/*  com total em valor de combustível comprado e botão verde)*/}
+          {/* ========================================================= */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Reserva da Fazenda
-                </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                <h3 className="text-base sm:text-lg font-black text-slate-900">
                   Total de Litros Disponível
                 </h3>
+                <div className="mt-1 text-xs text-slate-500 font-semibold">
+                  Total comprado: <strong className="text-emerald-800">R$ {totalCombustivelCompradoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </div>
               </div>
               <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
                 <Fuel className="w-6 h-6" />
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="my-4">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
                   {totalLitrosDisponivel.toLocaleString('pt-BR')}
                 </span>
                 <span className="text-lg font-bold text-emerald-700">Litros</span>
               </div>
-              
-              {/* Barra de volume do reservatório */}
-              <div className="mt-3">
-                <div className="flex justify-between text-[11px] text-slate-500 font-semibold mb-1">
-                  <span>Tanque central do sítio</span>
-                  <span>{porcentagemTanque}% ({totalLitrosDisponivel} / {capacidadeTanque} L)</span>
-                </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      porcentagemTanque < 25 ? 'bg-amber-500' : 'bg-emerald-600'
-                    }`}
-                    style={{ width: `${porcentagemTanque}%` }}
-                  />
-                </div>
-              </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
-                <Droplet className="w-3.5 h-3.5" /> Diesel S10 & Gasolina
-              </span>
+            {/* Apenas o Botão Entrada de Litros em cor verde preenchimento */}
+            <div className="pt-2">
               <button
-                onClick={() => setModalAbastecerTanque(true)}
-                className="text-xs font-bold text-emerald-800 hover:underline cursor-pointer"
+                onClick={() => setModalEntradaLitros(true)}
+                className="
+                  w-full py-2.5 px-4 rounded-xl
+                  bg-emerald-600 hover:bg-emerald-700
+                  text-white font-bold text-xs sm:text-sm
+                  shadow-sm shadow-emerald-700/20
+                  transition-all duration-150
+                  flex items-center justify-center gap-2
+                  cursor-pointer
+                "
               >
-                + Entrada de Litros
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Entrada de Litros (Abastecer Tanque)</span>
               </button>
             </div>
           </div>
 
+          {/* ========================================================= */}
           {/* CARD 2: Total de litros usados nesse mês de combustível no trator */}
+          {/* (Sem a linha de baixo com tratores, com botão de lançamento) */}
+          {/* ========================================================= */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Consumo Operacional
-                </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                <h3 className="text-base sm:text-lg font-black text-slate-900">
                   Litros Usados no Mês (Trator)
                 </h3>
+                <div className="mt-1 text-xs text-slate-500 font-semibold">
+                  Consumo acumulado em Outubro/2026
+                </div>
               </div>
               <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
                 <Tractor className="w-6 h-6" />
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="my-4">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
                   {litrosUsadosNoMes.toLocaleString('pt-BR')}
                 </span>
                 <span className="text-lg font-bold text-blue-600">Litros</span>
               </div>
-
-              <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600">
-                <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
-                <span>Consumo acumulado em Outubro/2026</span>
-              </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Tratores: Valtra A950 & Massey</span>
-              <span className="font-semibold text-slate-700">Média: {(litrosUsadosNoMes / 30).toFixed(1)} L/dia</span>
+            {/* Botão de Lançamento de Litros no Trator */}
+            <div className="pt-2">
+              <button
+                onClick={() => setModalAbastecerTrator(true)}
+                className="
+                  w-full py-2.5 px-4 rounded-xl
+                  bg-blue-600 hover:bg-blue-700
+                  text-white font-bold text-xs sm:text-sm
+                  shadow-sm shadow-blue-700/20
+                  transition-all duration-150
+                  flex items-center justify-center gap-2
+                  cursor-pointer
+                "
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Lançar Litros no Trator</span>
+              </button>
             </div>
           </div>
 
+          {/* ========================================================= */}
           {/* CARD 3: Despesas situacionais */}
+          {/* (Sem a linha de baixo '7 lançamentos com nf', com botão)  */}
+          {/* ========================================================= */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Custos e Peças
-                </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                <h3 className="text-base sm:text-lg font-black text-slate-900">
                   Despesas Situacionais
                 </h3>
+                <div className="mt-1 text-xs text-slate-500 font-semibold">
+                  Combustíveis, peças de reposição e revisões
+                </div>
               </div>
               <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
                 <DollarSign className="w-6 h-6" />
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="my-4">
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
                   R$ {totalDespesasSituacionais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-
-              <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600">
-                <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-                <span>Combustíveis, peças de reposição e revisões</span>
-              </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>{dados.despesas.length} lançamentos com NF</span>
-              <span className="font-semibold text-emerald-700">100% comprovados</span>
+            {/* Botão de Lançar Despesa Situacional */}
+            <div className="pt-2">
+              <button
+                onClick={() => setModalDespesaSituacional(true)}
+                className="
+                  w-full py-2.5 px-4 rounded-xl
+                  bg-amber-600 hover:bg-amber-700
+                  text-white font-bold text-xs sm:text-sm
+                  shadow-sm shadow-amber-700/20
+                  transition-all duration-150
+                  flex items-center justify-center gap-2
+                  cursor-pointer
+                "
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Lançar Despesa (Peças / Serviços)</span>
+              </button>
             </div>
           </div>
 
@@ -588,7 +696,520 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
       </main>
 
       {/* ============================================================== */}
-      {/* MODAL: VER A NOTA FISCAL (DANFE / COMPROVANTE ELETRÔNICO) */}
+      {/* MODAL 1: ENTRADA DE LITROS (COMPRA DE COMBUSTÍVEL / TANQUE)     */}
+      {/* ============================================================== */}
+      {modalEntradaLitros && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto animate-in fade-in"
+          onClick={() => setModalEntradaLitros(false)}
+        >
+          <div
+            className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-[#022013] text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Fuel className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="font-black text-base">Entrada de Litros (Abastecer Tanque)</h3>
+                  <p className="text-[11px] text-emerald-300">
+                    Lança a despesa do combustível, adiciona ao valor comprado e ao estoque de litros
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalEntradaLitros(false)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmarEntradaLitros} className="p-6 space-y-4 text-xs">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Data da Compra</label>
+                  <input
+                    type="date"
+                    required
+                    value={formEntradaTanque.data}
+                    onChange={e => setFormEntradaTanque({ ...formEntradaTanque, data: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tipo de Combustível</label>
+                  <select
+                    value={formEntradaTanque.produto}
+                    onChange={e => setFormEntradaTanque({ ...formEntradaTanque, produto: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 cursor-pointer font-semibold"
+                  >
+                    <option value="Diesel S10">Diesel S10 (Agrícola)</option>
+                    <option value="Diesel S500">Diesel S500</option>
+                    <option value="Gasolina Comum">Gasolina Comum</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Quantidade de Litros Comprados</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="any"
+                      min="1"
+                      required
+                      value={formEntradaTanque.quantidadeLitros}
+                      onChange={e => {
+                        const qtd = Number(e.target.value);
+                        setFormEntradaTanque(prev => ({
+                          ...prev,
+                          quantidadeLitros: qtd,
+                          valorTotal: Number((qtd * prev.precoLitro).toFixed(2))
+                        }));
+                      }}
+                      className="w-full pl-3 pr-8 py-2 border rounded-xl border-slate-200 font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">L</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Preço por Litro (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={formEntradaTanque.precoLitro}
+                    onChange={e => {
+                      const preco = Number(e.target.value);
+                      setFormEntradaTanque(prev => ({
+                        ...prev,
+                        precoLitro: preco,
+                        valorTotal: Number((prev.quantidadeLitros * preco).toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Box de Resumo da Despesa Calculada */}
+              <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide">
+                    Valor Total da Compra (R$)
+                  </span>
+                  <div className="text-xl font-black text-emerald-950">
+                    R$ {(formEntradaTanque.quantidadeLitros * formEntradaTanque.precoLitro).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] text-emerald-700 font-bold">Novo Saldo Tanque:</span>
+                  <div className="text-sm font-black text-emerald-900">
+                    + {formEntradaTanque.quantidadeLitros} L = {(dados.totalLitrosDisponivel + Number(formEntradaTanque.quantidadeLitros)).toLocaleString('pt-BR')} L
+                  </div>
+                </div>
+              </div>
+
+              {/* Dados da Nota Fiscal */}
+              <div className="border-t border-slate-200 pt-3 space-y-3">
+                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  Dados Fiscais da Compra (Nota Fiscal)
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Número da NF-e</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 091.500"
+                      value={formEntradaTanque.numeroNF}
+                      onChange={e => setFormEntradaTanque({ ...formEntradaTanque, numeroNF: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-600 mb-1">Distribuidora / Fornecedor</label>
+                    <input
+                      type="text"
+                      value={formEntradaTanque.fornecedor}
+                      onChange={e => setFormEntradaTanque({ ...formEntradaTanque, fornecedor: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalEntradaLitros(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-slate-700 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md cursor-pointer"
+                >
+                  Confirmar Entrada de Combustível
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 2: LANÇAR LITROS NO TRATOR (ABASTECIMENTO DO TRATOR)      */}
+      {/* ============================================================== */}
+      {modalAbastecerTrator && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto animate-in fade-in"
+          onClick={() => setModalAbastecerTrator(false)}
+        >
+          <div
+            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-blue-900 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Tractor className="w-5 h-5 text-blue-300" />
+                <div>
+                  <h3 className="font-black text-base">Lançar Litros no Trator</h3>
+                  <p className="text-[11px] text-blue-200">
+                    Abate litros do tanque da fazenda e soma no consumo do trator do mês
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalAbastecerTrator(false)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmarAbastecerTrator} className="p-6 space-y-4 text-xs">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Data do Abastecimento</label>
+                  <input
+                    type="date"
+                    required
+                    value={formTrator.data}
+                    onChange={e => setFormTrator({ ...formTrator, data: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-blue-600 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Máquina / Trator</label>
+                  <select
+                    value={formTrator.maquinaTrator}
+                    onChange={e => setFormTrator({ ...formTrator, maquinaTrator: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-blue-600 cursor-pointer font-semibold"
+                  >
+                    <option value="Trator Valtra A950">Trator Valtra A950</option>
+                    <option value="Trator Massey Ferguson 4292">Trator Massey Ferguson 4292</option>
+                    <option value="Roçadeira Husqvarna & Motosserra">Roçadeira Husqvarna & Motosserra</option>
+                    <option value="Caminhão Caçamba de Raiz">Caminhão Caçamba de Raiz</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Litros Colocados no Trator</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="any"
+                      min="1"
+                      required
+                      value={formTrator.quantidadeLitros}
+                      onChange={e => setFormTrator({ ...formTrator, quantidadeLitros: Number(e.target.value) })}
+                      className="w-full pl-3 pr-8 py-2 border rounded-xl border-slate-200 font-bold text-slate-900 focus:outline-none focus:border-blue-600 text-sm"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">L</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Operador Responsável</label>
+                  <input
+                    type="text"
+                    required
+                    value={formTrator.responsavel}
+                    onChange={e => setFormTrator({ ...formTrator, responsavel: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-blue-600 font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Operação / Serviço no Sítio</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Aração Talhão 01, Gradagem, Colheita..."
+                  value={formTrator.operacao}
+                  onChange={e => setFormTrator({ ...formTrator, operacao: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-blue-600"
+                />
+              </div>
+
+              {/* Box de Impacto no Tanque */}
+              <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-blue-950 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] font-bold text-blue-800">Saldo Atual Tanque:</span>
+                  <div className="font-bold">{totalLitrosDisponivel} L</div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] font-bold text-blue-800">Após o Abastecimento:</span>
+                  <div className="text-sm font-black text-blue-900">
+                    {Math.max(0, totalLitrosDisponivel - Number(formTrator.quantidadeLitros))} L disponíveis
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalAbastecerTrator(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-slate-700 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md cursor-pointer"
+                >
+                  Registrar Litros no Trator
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 3: LANÇAR DESPESA SITUACIONAL (PEÇAS / SERVIÇOS)         */}
+      {/* ============================================================== */}
+      {modalDespesaSituacional && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto animate-in fade-in"
+          onClick={() => setModalDespesaSituacional(false)}
+        >
+          <div
+            className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-amber-900 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Wrench className="w-5 h-5 text-amber-300" />
+                <div>
+                  <h3 className="font-black text-base">Lançar Despesa Situacional</h3>
+                  <p className="text-[11px] text-amber-200">
+                    Peças de reposição, lubrificantes, consertos e manutenções
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalDespesaSituacional(false)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmarDespesaSituacional} className="p-6 space-y-4 text-xs">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Data da Despesa</label>
+                  <input
+                    type="date"
+                    required
+                    value={formSituacional.data}
+                    onChange={e => setFormSituacional({ ...formSituacional, data: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Tipo de Item</label>
+                  <select
+                    value={formSituacional.tipo}
+                    onChange={e => setFormSituacional({ ...formSituacional, tipo: e.target.value as DespesaSitio['tipo'] })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600 cursor-pointer font-semibold"
+                  >
+                    <option value="PECA">Peça de Reposição</option>
+                    <option value="LUBRIFICANTE">Óleo / Graxa / Lubrificante</option>
+                    <option value="MANUTENCAO">Serviço / Manutenção Mecânica</option>
+                    <option value="OUTROS">Outros Insumos</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nome da Despesa</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Troca de Mangueira Hidráulica da Grade"
+                  value={formSituacional.nomeDespesa}
+                  onChange={e => setFormSituacional({ ...formSituacional, nomeDespesa: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Produto que foi</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Mangueira 1/2 Pol, Filtro Óleo..."
+                    value={formSituacional.produto}
+                    onChange={e => setFormSituacional({ ...formSituacional, produto: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Máquina / Trator Destinado</label>
+                  <select
+                    value={formSituacional.maquinaTrator}
+                    onChange={e => setFormSituacional({ ...formSituacional, maquinaTrator: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600 cursor-pointer"
+                  >
+                    <option value="Trator Valtra A950">Trator Valtra A950</option>
+                    <option value="Trator Massey Ferguson 4292">Trator Massey Ferguson 4292</option>
+                    <option value="Geral (Sítio / Implementos)">Geral (Sítio / Implementos)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Quantidade</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="1"
+                    required
+                    value={formSituacional.quantidade}
+                    onChange={e => {
+                      const q = Number(e.target.value);
+                      setFormSituacional(prev => ({
+                        ...prev,
+                        quantidade: q,
+                        valorTotal: Number((q * prev.valorUnitario).toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Unidade</label>
+                  <select
+                    value={formSituacional.unidade}
+                    onChange={e => setFormSituacional({ ...formSituacional, unidade: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 cursor-pointer font-bold"
+                  >
+                    <option value="UN">UN (Unidade)</option>
+                    <option value="JG">JG (Jogo)</option>
+                    <option value="CX">CX (Caixa)</option>
+                    <option value="L">L (Litros)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Valor Unitário (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={formSituacional.valorUnitario}
+                    onChange={e => {
+                      const vu = Number(e.target.value);
+                      setFormSituacional(prev => ({
+                        ...prev,
+                        valorUnitario: vu,
+                        valorTotal: Number((prev.quantidade * vu).toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Valor Total Calculado */}
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
+                <span className="font-bold text-amber-900">Valor Total da Despesa:</span>
+                <span className="text-base font-black text-amber-950">
+                  R$ {(formSituacional.quantidade * formSituacional.valorUnitario).toFixed(2)}
+                </span>
+              </div>
+
+              {/* Dados da NF */}
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                <div>
+                  <label className="block font-semibold text-slate-600 mb-1">Número da NF-e</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 014.288"
+                    value={formSituacional.numeroNF}
+                    onChange={e => setFormSituacional({ ...formSituacional, numeroNF: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-600 mb-1">Fornecedor / Peças</label>
+                  <input
+                    type="text"
+                    value={formSituacional.fornecedor}
+                    onChange={e => setFormSituacional({ ...formSituacional, fornecedor: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalDespesaSituacional(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-slate-700 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-md cursor-pointer"
+                >
+                  Lançar Despesa
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: VER A NOTA FISCAL (DANFE / COMPROVANTE ELETRÔNICO)       */}
       {/* ============================================================== */}
       {notaSelecionada && (
         <div
@@ -753,321 +1374,6 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
               </button>
             </div>
 
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* MODAL: LANÇAR NOVA DESPESA / ABASTECIMENTO */}
-      {/* ============================================================== */}
-      {modalNovaDespesa && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto animate-in fade-in"
-          onClick={() => setModalNovaDespesa(false)}
-        >
-          <div
-            className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="bg-[#022013] text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Plus className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-black text-base">Lançar Nova Despesa no Sítio</h3>
-              </div>
-              <button
-                onClick={() => setModalNovaDespesa(false)}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSalvarDespesa} className="p-6 space-y-4 text-xs">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Data da Despesa</label>
-                  <input
-                    type="date"
-                    required
-                    value={formDespesa.data}
-                    onChange={e => setFormDespesa({ ...formDespesa, data: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Tipo de Despesa</label>
-                  <select
-                    value={formDespesa.tipo}
-                    onChange={e => {
-                      const novoTipo = e.target.value as DespesaSitio['tipo'];
-                      const ehCombustivel = novoTipo === 'COMBUSTIVEL';
-                      setFormDespesa(prev => ({
-                        ...prev,
-                        tipo: novoTipo,
-                        unidade: ehCombustivel ? 'L' : 'UN',
-                        produto: ehCombustivel ? 'Diesel S10' : prev.produto
-                      }));
-                    }}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 cursor-pointer"
-                  >
-                    <option value="COMBUSTIVEL">Combustível (Abastecimento)</option>
-                    <option value="PECA">Peça de Reposição</option>
-                    <option value="LUBRIFICANTE">Lubrificante / Óleo</option>
-                    <option value="MANUTENCAO">Manutenção Mecânica</option>
-                    <option value="OUTROS">Outros</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Nome da Despesa</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Abastecimento Trator Valtra - Plantio"
-                  value={formDespesa.nomeDespesa}
-                  onChange={e => setFormDespesa({ ...formDespesa, nomeDespesa: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Produto que foi</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Diesel S10, Gasolina, Filtro de Óleo..."
-                    value={formDespesa.produto}
-                    onChange={e => setFormDespesa({ ...formDespesa, produto: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Trator / Máquina</label>
-                  <select
-                    value={formDespesa.maquinaTrator}
-                    onChange={e => setFormDespesa({ ...formDespesa, maquinaTrator: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 cursor-pointer"
-                  >
-                    <option value="Trator Valtra A950">Trator Valtra A950</option>
-                    <option value="Trator Massey Ferguson 4292">Trator Massey Ferguson 4292</option>
-                    <option value="Roçadeira Husqvarna & Motosserra">Roçadeira Husqvarna & Motosserra</option>
-                    <option value="Caminhão Caçamba Mandioca">Caminhão Caçamba Mandioca</option>
-                    <option value="Geral (Sítio / Implementos)">Geral (Sítio / Implementos)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Quantidade</label>
-                  <input
-                    type="number"
-                    step="any"
-                    required
-                    min="1"
-                    value={formDespesa.quantidade}
-                    onChange={e => handleAtualizarPrecoUnitario(Number(e.target.value), formDespesa.valorUnitario)}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Unidade</label>
-                  <select
-                    value={formDespesa.unidade}
-                    onChange={e => setFormDespesa({ ...formDespesa, unidade: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 cursor-pointer"
-                  >
-                    <option value="L">Litros (L)</option>
-                    <option value="UN">Unidades (UN)</option>
-                    <option value="JG">Jogo (JG)</option>
-                    <option value="CX">Caixa (CX)</option>
-                    <option value="KG">Quilos (KG)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Preço Unitário (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={formDespesa.valorUnitario}
-                    onChange={e => handleAtualizarPrecoUnitario(formDespesa.quantidade, Number(e.target.value))}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
-                <span className="font-bold text-emerald-900">Valor Total Calculado:</span>
-                <span className="text-base font-black text-emerald-950">
-                  R$ {formDespesa.valorTotal.toFixed(2)}
-                </span>
-              </div>
-
-              {/* Informações da Nota Fiscal */}
-              <div className="border-t border-slate-200 pt-3 space-y-3">
-                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                  Dados da Nota Fiscal / Comprovante
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-slate-600 mb-1">Número da NF-e</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 048.990"
-                      value={formDespesa.numeroNF}
-                      onChange={e => setFormDespesa({ ...formDespesa, numeroNF: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-600 mb-1">Fornecedor / Emitente</label>
-                    <input
-                      type="text"
-                      value={formDespesa.emitenteNF}
-                      onChange={e => setFormDespesa({ ...formDespesa, emitenteNF: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Abater do Tanque (se for combustível) */}
-              {formDespesa.tipo === 'COMBUSTIVEL' && formDespesa.unidade === 'L' && (
-                <label className="flex items-center gap-2 cursor-pointer pt-1">
-                  <input
-                    type="checkbox"
-                    checked={formDespesa.abaterDoTanque}
-                    onChange={e => setFormDespesa({ ...formDespesa, abaterDoTanque: e.target.checked })}
-                    className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
-                  />
-                  <span className="text-xs text-slate-700 font-medium">
-                    Abater <strong>{formDespesa.quantidade} Litros</strong> do total disponível no tanque da fazenda
-                  </span>
-                </label>
-              )}
-
-              <div className="pt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setModalNovaDespesa(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-slate-700 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md cursor-pointer"
-                >
-                  Confirmar Lançamento
-                </button>
-              </div>
-
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* MODAL: ABASTECER TANQUE DA FAZENDA (+ Litros Disponíveis) */}
-      {/* ============================================================== */}
-      {modalAbastecerTanque && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 sm:p-6 backdrop-blur-xs overflow-y-auto animate-in fade-in"
-          onClick={() => setModalAbastecerTanque(false)}
-        >
-          <div
-            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="bg-[#022013] text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Fuel className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-black text-base">Abastecer Tanque da Fazenda</h3>
-              </div>
-              <button
-                onClick={() => setModalAbastecerTanque(false)}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleConfirmarEntradaTanque} className="p-6 space-y-4 text-xs">
-              <p className="text-slate-600">
-                Adicione litros de combustível recebidos pelo caminhão comboio ou fornecedor para recarregar o reservatório central do sítio.
-              </p>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Litros a Adicionar</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    required
-                    value={litrosEntradaTanque}
-                    onChange={e => setLitrosEntradaTanque(Number(e.target.value))}
-                    className="w-full pl-3 pr-12 py-2.5 border rounded-xl border-slate-200 text-base font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
-                  />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-emerald-700">Litros</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Fornecedor / Distribuidora</label>
-                  <input
-                    type="text"
-                    value={fornecedorTanque}
-                    onChange={e => setFornecedorTanque(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 text-xs focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Nota Fiscal de Compra</label>
-                  <input
-                    type="text"
-                    value={notaTanque}
-                    onChange={e => setNotaTanque(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 text-xs focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900">
-                <div className="text-[11px] font-semibold">Novo Saldo Disponível:</div>
-                <div className="text-xl font-black mt-0.5">
-                  {(dados.totalLitrosDisponivel + Number(litrosEntradaTanque)).toLocaleString('pt-BR')} Litros
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setModalAbastecerTanque(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-bold text-slate-700 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md cursor-pointer"
-                >
-                  Confirmar Entrada
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
