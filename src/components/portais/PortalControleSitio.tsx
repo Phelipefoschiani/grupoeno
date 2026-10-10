@@ -7,16 +7,12 @@ import {
   FileText,
   Plus,
   Search,
-  Filter,
   CheckCircle2,
   X,
   Printer,
   Calendar,
-  Layers,
   Wrench,
-  AlertCircle,
-  Truck,
-  Droplet
+  AlertCircle
 } from 'lucide-react';
 import {
   DespesaSitio,
@@ -33,7 +29,7 @@ interface PortalControleSitioProps {
 export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
   const [dados, setDados] = useState<ControleSitioState>(carregarControleSitio());
   const [busca, setBusca] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState<string>('TODOS');
+  const [filtroTipoAcao, setFiltroTipoAcao] = useState<string>('TODOS');
   
   // Modal de Visualização da Nota Fiscal
   const [notaSelecionada, setNotaSelecionada] = useState<{
@@ -41,7 +37,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     nota: NotaFiscalDespesa;
   } | null>(null);
 
-  // 1. Modal Entrada de Litros (Abastecer Tanque de Combustível da Fazenda)
+  // 1. Modal Entrada de Litros (Compra de Combustível para o Tanque)
   const [modalEntradaLitros, setModalEntradaLitros] = useState(false);
   const [formEntradaTanque, setFormEntradaTanque] = useState({
     data: new Date().toISOString().split('T')[0],
@@ -52,10 +48,10 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     fornecedor: 'Distribuidora Rota do Petróleo & Agronegócio Ltda',
     cnpjFornecedor: '11.892.301/0001-92',
     numeroNF: '',
-    observacoes: 'Descarga de combustível no reservatório central do sítio.'
+    observacoes: 'Descarga de combustível no reservatório da fazenda.'
   });
 
-  // 2. Modal Lançar Litros no Trator (Abastecer Trator / Consumo de Combustível)
+  // 2. Modal Lançar Litros no Trator (Abastecimento)
   const [modalAbastecerTrator, setModalAbastecerTrator] = useState(false);
   const [formTrator, setFormTrator] = useState({
     data: new Date().toISOString().split('T')[0],
@@ -64,11 +60,11 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     produto: 'Diesel S10',
     quantidadeLitros: 120,
     custoLitro: 5.89,
-    operacao: 'Aração e Preparo do Solo para Mandiocultura',
+    operacao: 'Aração e Preparo do Solo',
     numeroNF: ''
   });
 
-  // 3. Modal Lançar Despesa Situacional (Peças / Serviços / Manutenção)
+  // 3. Modal Lançar Despesa Situacional (Peças / Manutenção / Insumos)
   const [modalDespesaSituacional, setModalDespesaSituacional] = useState(false);
   const [formSituacional, setFormSituacional] = useState({
     data: new Date().toISOString().split('T')[0],
@@ -79,7 +75,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     unidade: 'UN',
     valorUnitario: 150.00,
     valorTotal: 150.00,
-    maquinaTrator: 'Trator Valtra A950',
+    maquinaTrator: 'Geral',
     responsavel: 'Marcos Mecânico',
     numeroNF: '',
     fornecedor: 'TratorSul Peças e Implementos Agrícolas',
@@ -92,6 +88,45 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     return () => window.removeEventListener('sitio_controle_despesas_updated', handleUpdate);
   }, []);
 
+  // Classificador do Tipo de Ação: Compra de Gasolina/Diesel, Abastecimento ou Despesas
+  const getTipoAcao = (despesa: DespesaSitio): { label: string; badgeClass: string; key: 'COMPRA' | 'ABASTECIMENTO' | 'DESPESA' } => {
+    const nomeLower = despesa.nomeDespesa.toLowerCase();
+    const prodLower = despesa.produto.toLowerCase();
+    const tratorLower = despesa.maquinaTrator.toLowerCase();
+
+    // 1. Compra de Combustível / Gasolina
+    if (nomeLower.includes('compra') || tratorLower.includes('tanque')) {
+      if (prodLower.includes('gasolina')) {
+        return {
+          label: 'Compra Gasolina',
+          badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300/80',
+          key: 'COMPRA'
+        };
+      }
+      return {
+        label: 'Compra Combustível',
+        badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300/80',
+        key: 'COMPRA'
+      };
+    }
+
+    // 2. Abastecimento (quando abastece trator / máquina)
+    if (nomeLower.includes('abastecimento') || (despesa.unidade === 'L' && despesa.tipo === 'COMBUSTIVEL')) {
+      return {
+        label: 'Abastecimento',
+        badgeClass: 'bg-blue-100 text-blue-900 border border-blue-300/80',
+        key: 'ABASTECIMENTO'
+      };
+    }
+
+    // 3. Despesas (peças, manutenção, óleos)
+    return {
+      label: 'Despesas',
+      badgeClass: 'bg-amber-100 text-amber-900 border border-amber-300/80',
+      key: 'DESPESA'
+    };
+  };
+
   // Cálculos Dinâmicos dos Cards:
   // 1. Total de litros disponível no tanque do sítio
   const totalLitrosDisponivel = dados.totalLitrosDisponivel;
@@ -99,7 +134,10 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
   // Total em valor de combustível comprado
   const totalCombustivelCompradoValor = useMemo(() => {
     return dados.despesas
-      .filter(d => d.tipo === 'COMBUSTIVEL' || d.unidade === 'L')
+      .filter(d => {
+        const info = getTipoAcao(d);
+        return info.key === 'COMPRA' || d.tipo === 'COMBUSTIVEL' || d.unidade === 'L';
+      })
       .reduce((acc, d) => acc + (Number(d.valorTotal) || 0), 0);
   }, [dados.despesas]);
 
@@ -109,9 +147,8 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     return dados.despesas
       .filter(d => {
         const ehMesAtual = d.data.startsWith(mesAtualKey);
-        const ehCombustivel = d.unidade === 'L' || d.tipo === 'COMBUSTIVEL';
-        const ehUsoTrator = !d.nomeDespesa.toLowerCase().includes('compra de combustível');
-        return ehMesAtual && ehCombustivel && ehUsoTrator;
+        const info = getTipoAcao(d);
+        return ehMesAtual && info.key === 'ABASTECIMENTO';
       })
       .reduce((acc, d) => acc + (Number(d.quantidade) || 0), 0);
   }, [dados.despesas, mesAtualKey]);
@@ -121,23 +158,26 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     return dados.despesas.reduce((acc, d) => acc + (Number(d.valorTotal) || 0), 0);
   }, [dados.despesas]);
 
-  // Filtro da Tabela em Linhas
-  const despesasFiltradas = useMemo(() => {
+  // Filtro do Histórico de Movimentação
+  const movimentacoesFiltradas = useMemo(() => {
     return dados.despesas.filter(d => {
+      const infoAcao = getTipoAcao(d);
+
       const matchBusca = 
-        d.nomeDespesa.toLowerCase().includes(busca.toLowerCase()) ||
+        infoAcao.label.toLowerCase().includes(busca.toLowerCase()) ||
         d.produto.toLowerCase().includes(busca.toLowerCase()) ||
-        d.maquinaTrator.toLowerCase().includes(busca.toLowerCase()) ||
+        d.nomeDespesa.toLowerCase().includes(busca.toLowerCase()) ||
         d.notaFiscal.numero.toLowerCase().includes(busca.toLowerCase());
 
-      const matchTipo = filtroTipo === 'TODOS' || d.tipo === filtroTipo;
+      const matchFiltro = 
+        filtroTipoAcao === 'TODOS' ||
+        infoAcao.key === filtroTipoAcao;
 
-      return matchBusca && matchTipo;
+      return matchBusca && matchFiltro;
     });
-  }, [dados.despesas, busca, filtroTipo]);
+  }, [dados.despesas, busca, filtroTipoAcao]);
 
-  // AÇÃO 1: Entrada de Litros (Abastecer Tanque do Sítio)
-  // Lança a despesa do combustível, adiciona no valor total de combustível comprado e adiciona nos litros disponíveis!
+  // AÇÃO 1: Entrada de Litros (Compra de Combustível)
   const handleConfirmarEntradaLitros = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -146,17 +186,17 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     const totalCalculado = Number((qtdLitros * precoLitro).toFixed(2));
     const numeroNF = formEntradaTanque.numeroNF.trim() || `NF-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    const novaDespesaEntrada: DespesaSitio = {
-      id: `desp_tanque_${Date.now()}`,
+    const novaEntrada: DespesaSitio = {
+      id: `mov_compra_${Date.now()}`,
       data: formEntradaTanque.data,
-      nomeDespesa: `Compra de Combustível - Tanque Central (${qtdLitros} L)`,
+      nomeDespesa: `Compra de Combustível (${qtdLitros} L)`,
       tipo: 'COMBUSTIVEL',
       produto: formEntradaTanque.produto,
       quantidade: qtdLitros,
       unidade: 'L',
       valorUnitario: precoLitro,
       valorTotal: totalCalculado,
-      maquinaTrator: 'Tanque Central da Fazenda',
+      maquinaTrator: 'Estoque Central',
       responsavel: 'Valdecir (Mestre de Campo)',
       notaFiscal: {
         numero: numeroNF,
@@ -170,7 +210,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
         formaPagamento: 'Faturado 30 Dias (Boleto Bancário)',
         itens: [
           {
-            descricao: `ÓLEO DIESEL ${formEntradaTanque.produto.toUpperCase()} A GRANEL`,
+            descricao: `COMBUSTÍVEL ${formEntradaTanque.produto.toUpperCase()} A GRANEL`,
             quantidade: qtdLitros,
             unidade: 'L',
             precoUnitario: precoLitro,
@@ -184,7 +224,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     const novosDados: ControleSitioState = {
       ...dados,
       totalLitrosDisponivel: dados.totalLitrosDisponivel + qtdLitros,
-      despesas: [novaDespesaEntrada, ...dados.despesas]
+      despesas: [novaEntrada, ...dados.despesas]
     };
 
     salvarControleSitio(novosDados);
@@ -192,8 +232,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     setModalEntradaLitros(false);
   };
 
-  // AÇÃO 2: Lançar Litros no Trator (Consumo de Combustível no Trator)
-  // Abate os litros do tanque disponível, adiciona aos litros usados no trator e registra na tabela!
+  // AÇÃO 2: Abastecimento de Trator
   const handleConfirmarAbastecerTrator = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -202,10 +241,10 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     const totalCalculado = Number((qtdLitros * custoLitro).toFixed(2));
     const numeroNF = formTrator.numeroNF.trim() || `ABAST-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const novaDespesaTrator: DespesaSitio = {
-      id: `desp_trator_${Date.now()}`,
+    const novoAbastecimento: DespesaSitio = {
+      id: `mov_abast_${Date.now()}`,
       data: formTrator.data,
-      nomeDespesa: `Abastecimento ${formTrator.maquinaTrator} - ${formTrator.operacao}`,
+      nomeDespesa: `Abastecimento de Trator (${qtdLitros} L)`,
       tipo: 'COMBUSTIVEL',
       produto: formTrator.produto,
       quantidade: qtdLitros,
@@ -223,24 +262,24 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
         cnpjEmitente: '14.892.102/0001-44',
         destinatario: 'Sítio Santana - Grupo ENO Agroindústria',
         cnpjDestinatario: '08.721.432/0001-90',
-        formaPagamento: 'Retirada Direta Tanque da Fazenda',
+        formaPagamento: 'Retirada Direta Tanque do Sítio',
         itens: [
           {
-            descricao: `COMBUSTÍVEL AGRÍCOLA ${formTrator.produto.toUpperCase()} PARA ${formTrator.maquinaTrator.toUpperCase()}`,
+            descricao: `ABASTECIMENTO ${formTrator.produto.toUpperCase()}`,
             quantidade: qtdLitros,
             unidade: 'L',
             precoUnitario: custoLitro,
             total: totalCalculado
           }
         ],
-        observacoes: `Operação agrícola: ${formTrator.operacao}. Operador: ${formTrator.responsavel}`
+        observacoes: `Operação agrícola no sítio. Operador: ${formTrator.responsavel}`
       }
     };
 
     const novosDados: ControleSitioState = {
       ...dados,
       totalLitrosDisponivel: Math.max(0, dados.totalLitrosDisponivel - qtdLitros),
-      despesas: [novaDespesaTrator, ...dados.despesas]
+      despesas: [novoAbastecimento, ...dados.despesas]
     };
 
     salvarControleSitio(novosDados);
@@ -248,7 +287,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     setModalAbastecerTrator(false);
   };
 
-  // AÇÃO 3: Lançar Despesa Situacional (Peças / Oficina / Lubrificantes)
+  // AÇÃO 3: Lançar Despesa (Peças / Manutenção)
   const handleConfirmarDespesaSituacional = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -258,16 +297,16 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
     const numeroNF = formSituacional.numeroNF.trim() || `NF-${Math.floor(10000 + Math.random() * 90000)}`;
 
     const novaDespesa: DespesaSitio = {
-      id: `desp_sit_${Date.now()}`,
+      id: `mov_desp_${Date.now()}`,
       data: formSituacional.data,
-      nomeDespesa: formSituacional.nomeDespesa || `${formSituacional.produto} para ${formSituacional.maquinaTrator}`,
+      nomeDespesa: formSituacional.nomeDespesa || formSituacional.produto,
       tipo: formSituacional.tipo,
       produto: formSituacional.produto,
       quantidade: qtd,
       unidade: formSituacional.unidade,
       valorUnitario: vlrUnit,
       valorTotal: totalCalculado,
-      maquinaTrator: formSituacional.maquinaTrator,
+      maquinaTrator: 'Geral',
       responsavel: formSituacional.responsavel,
       notaFiscal: {
         numero: numeroNF,
@@ -288,7 +327,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
             total: totalCalculado
           }
         ],
-        observacoes: `Peça/serviço aplicado em: ${formSituacional.maquinaTrator}`
+        observacoes: 'Despesa de manutenção e operação do sítio.'
       }
     };
 
@@ -314,7 +353,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
   return (
     <div className="min-h-screen bg-[#f4f7f5] text-slate-900 flex flex-col font-sans">
       
-      {/* 1. TOPO: 'Controle' em destaque com navegação e ações */}
+      {/* 1. TOPO: 'Controle' em destaque */}
       <header className="bg-[#022013] text-white border-b border-emerald-900 shadow-md sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           
@@ -372,13 +411,11 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
 
-        {/* 2. OS 3 CARDS DE ACORDO COM AS ESPECIFICAÇÕES EXATAS */}
+        {/* 2. OS 3 CARDS */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
           
           {/* ========================================================= */}
-          {/* CARD 1: Total de litros disponível & Valor Comprado */}
-          {/* (Sem 'reserva da fazenda', sem 'diesel s10 e gasolina',   */}
-          {/*  com total em valor de combustível comprado e botão verde)*/}
+          {/* CARD 1: Total de Litros Disponível & Total Comprado       */}
           {/* ========================================================= */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-start justify-between">
@@ -425,8 +462,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
           </div>
 
           {/* ========================================================= */}
-          {/* CARD 2: Total de litros usados nesse mês de combustível no trator */}
-          {/* (Sem a linha de baixo com tratores, com botão de lançamento) */}
+          {/* CARD 2: Total de litros usados nesse mês no trator        */}
           {/* ========================================================= */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-start justify-between">
@@ -473,8 +509,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
           </div>
 
           {/* ========================================================= */}
-          {/* CARD 3: Despesas situacionais */}
-          {/* (Sem a linha de baixo '7 lançamentos com nf', com botão)  */}
+          {/* CARD 3: Despesas situacionais                             */}
           {/* ========================================================= */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-start justify-between">
@@ -521,17 +556,21 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
 
         </section>
 
-        {/* 3. TABELA EM LINHAS COM AS DESPESAS E NOTAS FISCAIS */}
+        {/* ============================================================== */}
+        {/* 3. TABELA: HISTÓRICO DE MOVIMENTAÇÃO                           */}
+        {/* Colunas: Data | Tipo de Ação | Produto | Quantidade |           */}
+        {/*          Valor Unitário | Valor Total | Ver Nota                */}
+        {/* ============================================================== */}
         <section className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
           
           {/* Cabeçalho da Tabela e Barra de Busca */}
           <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-900">
-                Tabela de Despesas Situacionais & Combustível
+                Histórico de Movimentação
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Histórico detalhado com data, nome da despesa, produto, quantidade/unidade e comprovante fiscal
+                Registro de compras de combustível, abastecimentos de máquinas e despesas
               </p>
             </div>
 
@@ -543,7 +582,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                   type="text"
                   value={busca}
                   onChange={e => setBusca(e.target.value)}
-                  placeholder="Buscar despesa, produto, NF..."
+                  placeholder="Buscar ação, produto, NF..."
                   className="
                     w-full pl-9 pr-3 py-2 rounded-xl text-xs
                     border border-slate-200 bg-white
@@ -553,127 +592,111 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
               </div>
 
               <select
-                value={filtroTipo}
-                onChange={e => setFiltroTipo(e.target.value)}
+                value={filtroTipoAcao}
+                onChange={e => setFiltroTipoAcao(e.target.value)}
                 className="
                   px-3 py-2 rounded-xl text-xs font-semibold
                   border border-slate-200 bg-white text-slate-700
                   focus:outline-none focus:border-emerald-600 cursor-pointer
                 "
               >
-                <option value="TODOS">Todos os Tipos</option>
-                <option value="COMBUSTIVEL">Combustível</option>
-                <option value="PECA">Peças / Implementos</option>
-                <option value="LUBRIFICANTE">Lubrificantes</option>
+                <option value="TODOS">Todas as Ações</option>
+                <option value="COMPRA">Compras de Combustível</option>
+                <option value="ABASTECIMENTO">Abastecimentos</option>
+                <option value="DESPESA">Despesas</option>
               </select>
             </div>
           </div>
 
-          {/* Tabela de Despesas em Linhas */}
+          {/* Tabela de Movimentações */}
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
                   <th className="py-3 px-4 sm:px-6">Data</th>
-                  <th className="py-3 px-4">Nome da Despesa</th>
-                  <th className="py-3 px-4">Produto que foi</th>
-                  <th className="py-3 px-4 text-center">Quantidade / Unidade</th>
+                  <th className="py-3 px-4">Tipo de Ação</th>
+                  <th className="py-3 px-4">Produto</th>
+                  <th className="py-3 px-4 text-center">Quantidade</th>
+                  <th className="py-3 px-4 text-right">Valor Unitário</th>
                   <th className="py-3 px-4 text-right">Valor Total</th>
-                  <th className="py-3 px-4 sm:px-6 text-center">Ver a Nota</th>
+                  <th className="py-3 px-4 sm:px-6 text-center">Ver Nota</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                {despesasFiltradas.length === 0 ? (
+                {movimentacoesFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-slate-400">
-                      Nenhuma despesa encontrada para os critérios selecionados.
+                    <td colSpan={7} className="py-10 text-center text-slate-400">
+                      Nenhuma movimentação encontrada para os critérios selecionados.
                     </td>
                   </tr>
                 ) : (
-                  despesasFiltradas.map((desp) => (
-                    <tr
-                      key={desp.id}
-                      className="hover:bg-emerald-50/40 transition-colors group"
-                    >
-                      {/* 1. Data */}
-                      <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{formatarDataBR(desp.data)}</span>
-                        </div>
-                      </td>
+                  movimentacoesFiltradas.map((mov) => {
+                    const tipoInfo = getTipoAcao(mov);
+                    return (
+                      <tr
+                        key={mov.id}
+                        className="hover:bg-emerald-50/40 transition-colors group"
+                      >
+                        {/* 1. Data */}
+                        <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{formatarDataBR(mov.data)}</span>
+                          </div>
+                        </td>
 
-                      {/* 2. Nome da Despesa */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">
-                          {desp.nomeDespesa}
-                        </div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                          <span className="inline-flex items-center gap-1 font-medium text-emerald-800">
-                            <Tractor className="w-3 h-3 text-emerald-600" />
-                            {desp.maquinaTrator}
+                        {/* 2. Tipo de Ação (Compra Gasolina, Abastecimento, Despesas) */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${tipoInfo.badgeClass}`}>
+                            {tipoInfo.label}
                           </span>
-                          <span>•</span>
-                          <span>{desp.responsavel}</span>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* 3. Produto que foi */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-800 flex items-center gap-2">
-                          <span className={`
-                            w-2 h-2 rounded-full shrink-0
-                            ${desp.tipo === 'COMBUSTIVEL' ? 'bg-emerald-600' : desp.tipo === 'PECA' ? 'bg-amber-600' : 'bg-blue-600'}
-                          `} />
-                          <span>{desp.produto}</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                          Tipo: {desp.tipo}
-                        </span>
-                      </td>
+                        {/* 3. Produto */}
+                        <td className="py-3.5 px-4 font-semibold text-slate-800">
+                          {mov.produto}
+                        </td>
 
-                      {/* 4. Quantidade / Unidade (se gasolina/diesel: L; se peça: UN) */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span className={`
-                          inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-xs font-black
-                          ${desp.unidade === 'L' 
-                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300/60' 
-                            : 'bg-amber-100 text-amber-900 border border-amber-300/60'}
-                        `}>
-                          {desp.quantidade} {desp.unidade}
-                        </span>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          R$ {desp.valorUnitario.toFixed(2)} /{desp.unidade}
-                        </div>
-                      </td>
+                        {/* 4. Quantidade */}
+                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          <span className="font-bold text-slate-900">
+                            {mov.quantidade} {mov.unidade}
+                          </span>
+                        </td>
 
-                      {/* 5. Valor Total */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <span className="font-black text-slate-900 text-sm">
-                          R$ {desp.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </td>
+                        {/* 5. Valor Unitário */}
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap font-medium text-slate-600">
+                          R$ {mov.valorUnitario.toFixed(2)}
+                        </td>
 
-                      {/* 6. Ver a Nota */}
-                      <td className="py-3.5 px-4 sm:px-6 text-center whitespace-nowrap">
-                        <button
-                          onClick={() => setNotaSelecionada({ despesa: desp, nota: desp.notaFiscal })}
-                          className="
-                            inline-flex items-center gap-1.5 px-3 py-1.5
-                            rounded-xl bg-emerald-50 hover:bg-emerald-100
-                            border border-emerald-300 text-emerald-900
-                            text-xs font-bold transition-all duration-150
-                            hover:scale-105 active:scale-100 cursor-pointer
-                          "
-                          title={`Ver Nota Fiscal ${desp.notaFiscal.numero}`}
-                        >
-                          <FileText className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>Ver a Nota</span>
-                        </button>
-                      </td>
+                        {/* 6. Valor Total */}
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <span className="font-black text-slate-900 text-sm">
+                            R$ {mov.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </td>
 
-                    </tr>
-                  ))
+                        {/* 7. Ver Nota */}
+                        <td className="py-3.5 px-4 sm:px-6 text-center whitespace-nowrap">
+                          <button
+                            onClick={() => setNotaSelecionada({ despesa: mov, nota: mov.notaFiscal })}
+                            className="
+                              inline-flex items-center gap-1.5 px-3 py-1.5
+                              rounded-xl bg-emerald-50 hover:bg-emerald-100
+                              border border-emerald-300 text-emerald-900
+                              text-xs font-bold transition-all duration-150
+                              hover:scale-105 active:scale-100 cursor-pointer
+                            "
+                            title={`Ver Nota Fiscal ${mov.notaFiscal.numero}`}
+                          >
+                            <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>Ver Nota</span>
+                          </button>
+                        </td>
+
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -682,11 +705,11 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
           {/* Rodapé da Tabela */}
           <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
             <span>
-              Exibindo <strong>{despesasFiltradas.length}</strong> de <strong>{dados.despesas.length}</strong> registros
+              Exibindo <strong>{movimentacoesFiltradas.length}</strong> de <strong>{dados.despesas.length}</strong> movimentações
             </span>
             <div className="flex items-center gap-3">
               <span className="font-medium text-slate-700">
-                Total Filtrado: <strong>R$ {despesasFiltradas.reduce((a, b) => a + b.valorTotal, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                Total do Período: <strong>R$ {movimentacoesFiltradas.reduce((a, b) => a + b.valorTotal, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
               </span>
             </div>
           </div>
@@ -696,7 +719,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
       </main>
 
       {/* ============================================================== */}
-      {/* MODAL 1: ENTRADA DE LITROS (COMPRA DE COMBUSTÍVEL / TANQUE)     */}
+      {/* MODAL 1: ENTRADA DE LITROS (COMPRA DE COMBUSTÍVEL)              */}
       {/* ============================================================== */}
       {modalEntradaLitros && (
         <div
@@ -711,9 +734,9 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
               <div className="flex items-center gap-2.5">
                 <Fuel className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <h3 className="font-black text-base">Entrada de Litros (Abastecer Tanque)</h3>
+                  <h3 className="font-black text-base">Entrada de Litros (Compra de Combustível)</h3>
                   <p className="text-[11px] text-emerald-300">
-                    Lança a despesa do combustível, adiciona ao valor comprado e ao estoque de litros
+                    Lança a compra com NF, adiciona ao valor comprado e recarrega os litros do sítio
                   </p>
                 </div>
               </div>
@@ -740,22 +763,22 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Tipo de Combustível</label>
+                  <label className="block font-bold text-slate-700 mb-1">Produto (Combustível)</label>
                   <select
                     value={formEntradaTanque.produto}
                     onChange={e => setFormEntradaTanque({ ...formEntradaTanque, produto: e.target.value })}
                     className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-emerald-600 cursor-pointer font-semibold"
                   >
-                    <option value="Diesel S10">Diesel S10 (Agrícola)</option>
-                    <option value="Diesel S500">Diesel S500</option>
+                    <option value="Diesel S10">Diesel S10</option>
                     <option value="Gasolina Comum">Gasolina Comum</option>
+                    <option value="Diesel S500">Diesel S500</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Quantidade de Litros Comprados</label>
+                  <label className="block font-bold text-slate-700 mb-1">Quantidade (Litros)</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -798,7 +821,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                 </div>
               </div>
 
-              {/* Box de Resumo da Despesa Calculada */}
+              {/* Box de Resumo da Compra */}
               <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
                 <div>
                   <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide">
@@ -809,17 +832,17 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[11px] text-emerald-700 font-bold">Novo Saldo Tanque:</span>
+                  <span className="text-[11px] text-emerald-700 font-bold">Novo Saldo Disponível:</span>
                   <div className="text-sm font-black text-emerald-900">
                     + {formEntradaTanque.quantidadeLitros} L = {(dados.totalLitrosDisponivel + Number(formEntradaTanque.quantidadeLitros)).toLocaleString('pt-BR')} L
                   </div>
                 </div>
               </div>
 
-              {/* Dados da Nota Fiscal */}
+              {/* Dados da NF */}
               <div className="border-t border-slate-200 pt-3 space-y-3">
                 <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                  Dados Fiscais da Compra (Nota Fiscal)
+                  Dados Fiscais (Nota Fiscal)
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -835,7 +858,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-600 mb-1">Distribuidora / Fornecedor</label>
+                    <label className="block font-semibold text-slate-600 mb-1">Distribuidora / Posto</label>
                     <input
                       type="text"
                       value={formEntradaTanque.fornecedor}
@@ -868,7 +891,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
       )}
 
       {/* ============================================================== */}
-      {/* MODAL 2: LANÇAR LITROS NO TRATOR (ABASTECIMENTO DO TRATOR)      */}
+      {/* MODAL 2: ABASTECIMENTO (LANÇAR LITROS NO TRATOR)               */}
       {/* ============================================================== */}
       {modalAbastecerTrator && (
         <div
@@ -883,9 +906,9 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
               <div className="flex items-center gap-2.5">
                 <Tractor className="w-5 h-5 text-blue-300" />
                 <div>
-                  <h3 className="font-black text-base">Lançar Litros no Trator</h3>
+                  <h3 className="font-black text-base">Lançar Abastecimento</h3>
                   <p className="text-[11px] text-blue-200">
-                    Abate litros do tanque da fazenda e soma no consumo do trator do mês
+                    Abate litros disponíveis e registra a movimentação de abastecimento
                   </p>
                 </div>
               </div>
@@ -912,23 +935,22 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Máquina / Trator</label>
+                  <label className="block font-bold text-slate-700 mb-1">Combustível</label>
                   <select
-                    value={formTrator.maquinaTrator}
-                    onChange={e => setFormTrator({ ...formTrator, maquinaTrator: e.target.value })}
+                    value={formTrator.produto}
+                    onChange={e => setFormTrator({ ...formTrator, produto: e.target.value })}
                     className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-blue-600 cursor-pointer font-semibold"
                   >
-                    <option value="Trator Valtra A950">Trator Valtra A950</option>
-                    <option value="Trator Massey Ferguson 4292">Trator Massey Ferguson 4292</option>
-                    <option value="Roçadeira Husqvarna & Motosserra">Roçadeira Husqvarna & Motosserra</option>
-                    <option value="Caminhão Caçamba de Raiz">Caminhão Caçamba de Raiz</option>
+                    <option value="Diesel S10">Diesel S10</option>
+                    <option value="Gasolina Comum">Gasolina Comum</option>
+                    <option value="Diesel S500">Diesel S500</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Litros Colocados no Trator</label>
+                  <label className="block font-bold text-slate-700 mb-1">Quantidade de Litros</label>
                   <div className="relative">
                     <input
                       type="number"
@@ -944,39 +966,29 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Operador Responsável</label>
+                  <label className="block font-bold text-slate-700 mb-1">Custo Médio / Litro (R$)</label>
                   <input
-                    type="text"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
                     required
-                    value={formTrator.responsavel}
-                    onChange={e => setFormTrator({ ...formTrator, responsavel: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-blue-600 font-semibold"
+                    value={formTrator.custoLitro}
+                    onChange={e => setFormTrator({ ...formTrator, custoLitro: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 font-bold text-slate-900 focus:outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Operação / Serviço no Sítio</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Aração Talhão 01, Gradagem, Colheita..."
-                  value={formTrator.operacao}
-                  onChange={e => setFormTrator({ ...formTrator, operacao: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-
-              {/* Box de Impacto no Tanque */}
+              {/* Box de Saldo */}
               <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-blue-950 flex items-center justify-between">
                 <div>
                   <span className="text-[11px] font-bold text-blue-800">Saldo Atual Tanque:</span>
                   <div className="font-bold">{totalLitrosDisponivel} L</div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[11px] font-bold text-blue-800">Após o Abastecimento:</span>
+                  <span className="text-[11px] font-bold text-blue-800">Após Abastecer:</span>
                   <div className="text-sm font-black text-blue-900">
-                    {Math.max(0, totalLitrosDisponivel - Number(formTrator.quantidadeLitros))} L disponíveis
+                    {Math.max(0, totalLitrosDisponivel - Number(formTrator.quantidadeLitros))} L restantes
                   </div>
                 </div>
               </div>
@@ -993,7 +1005,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md cursor-pointer"
                 >
-                  Registrar Litros no Trator
+                  Registrar Abastecimento
                 </button>
               </div>
 
@@ -1003,7 +1015,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
       )}
 
       {/* ============================================================== */}
-      {/* MODAL 3: LANÇAR DESPESA SITUACIONAL (PEÇAS / SERVIÇOS)         */}
+      {/* MODAL 3: LANÇAR DESPESAS (PEÇAS / SERVIÇOS)                    */}
       {/* ============================================================== */}
       {modalDespesaSituacional && (
         <div
@@ -1018,9 +1030,9 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
               <div className="flex items-center gap-2.5">
                 <Wrench className="w-5 h-5 text-amber-300" />
                 <div>
-                  <h3 className="font-black text-base">Lançar Despesa Situacional</h3>
+                  <h3 className="font-black text-base">Lançar Despesa</h3>
                   <p className="text-[11px] text-amber-200">
-                    Peças de reposição, lubrificantes, consertos e manutenções
+                    Peças de reposição, consertos, óleos ou serviços
                   </p>
                 </div>
               </div>
@@ -1047,56 +1059,15 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Tipo de Item</label>
-                  <select
-                    value={formSituacional.tipo}
-                    onChange={e => setFormSituacional({ ...formSituacional, tipo: e.target.value as DespesaSitio['tipo'] })}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600 cursor-pointer font-semibold"
-                  >
-                    <option value="PECA">Peça de Reposição</option>
-                    <option value="LUBRIFICANTE">Óleo / Graxa / Lubrificante</option>
-                    <option value="MANUTENCAO">Serviço / Manutenção Mecânica</option>
-                    <option value="OUTROS">Outros Insumos</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Nome da Despesa</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Troca de Mangueira Hidráulica da Grade"
-                  value={formSituacional.nomeDespesa}
-                  onChange={e => setFormSituacional({ ...formSituacional, nomeDespesa: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Produto que foi</label>
+                  <label className="block font-bold text-slate-700 mb-1">Produto / Peça</label>
                   <input
                     type="text"
                     required
-                    placeholder="Ex: Mangueira 1/2 Pol, Filtro Óleo..."
+                    placeholder="Ex: Filtro de Óleo, Mangueira..."
                     value={formSituacional.produto}
                     onChange={e => setFormSituacional({ ...formSituacional, produto: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600"
+                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600 font-semibold"
                   />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Máquina / Trator Destinado</label>
-                  <select
-                    value={formSituacional.maquinaTrator}
-                    onChange={e => setFormSituacional({ ...formSituacional, maquinaTrator: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl border-slate-200 focus:outline-none focus:border-amber-600 cursor-pointer"
-                  >
-                    <option value="Trator Valtra A950">Trator Valtra A950</option>
-                    <option value="Trator Massey Ferguson 4292">Trator Massey Ferguson 4292</option>
-                    <option value="Geral (Sítio / Implementos)">Geral (Sítio / Implementos)</option>
-                  </select>
                 </div>
               </div>
 
@@ -1177,7 +1148,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-600 mb-1">Fornecedor / Peças</label>
+                  <label className="block font-semibold text-slate-600 mb-1">Fornecedor</label>
                   <input
                     type="text"
                     value={formSituacional.fornecedor}
@@ -1364,7 +1335,7 @@ export function PortalControleSitio({ onVoltar }: PortalControleSitioProps) {
             {/* Rodapé do Modal de Nota */}
             <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between">
               <span className="text-[11px] text-slate-500">
-                Despesa associada: <strong>{notaSelecionada.despesa.nomeDespesa}</strong>
+                Movimentação associada: <strong>{notaSelecionada.despesa.nomeDespesa}</strong>
               </span>
               <button
                 onClick={() => setNotaSelecionada(null)}
