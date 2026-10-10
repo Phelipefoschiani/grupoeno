@@ -1,0 +1,284 @@
+{
+  "entities": {
+    "Produto": {
+      "title": "Produto",
+      "description": "Produto acabado do catálogo da fecularia",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "codigo": { "type": "string" },
+        "nome": { "type": "string" },
+        "categoria": { "type": "string" },
+        "tipo_embalagem": { "type": "string" },
+        "preco_unitario_venda": { "type": "number" },
+        "saldo_estoque_unidades": { "type": "number" }
+      },
+      "required": ["id", "codigo", "nome", "categoria", "tipo_embalagem"]
+    },
+    "MateriaPrima": {
+      "title": "MateriaPrima",
+      "description": "Insumo ou matéria-prima utilizada na produção",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "codigo": { "type": "string" },
+        "nome": { "type": "string" },
+        "categoria": { "type": "string" },
+        "unidade_medida": { "type": "string" },
+        "estoque_atual": { "type": "number" },
+        "custo_medio_unitario": { "type": "number" }
+      },
+      "required": ["id", "codigo", "nome", "categoria", "unidade_medida"]
+    },
+    "Receita": {
+      "title": "Receita",
+      "description": "Formulação e rendimento industrial de batelada",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "codigo": { "type": "string" },
+        "nome": { "type": "string" },
+        "rendimento_pacotes": { "type": "number" },
+        "tipo_embalagem": { "type": "string" }
+      },
+      "required": ["id", "codigo", "nome", "rendimento_pacotes"]
+    },
+    "FichaTecnica": {
+      "title": "FichaTecnica",
+      "description": "Especificações e itens definidos para a qualidade do produto",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "produto_nome": { "type": "string" },
+        "codigo": { "type": "string" }
+      },
+      "required": ["id", "produto_nome"]
+    },
+    "TabelaPreco": {
+      "title": "TabelaPreco",
+      "description": "Condições e tabelas comerciais de venda",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "codigo": { "type": "string" },
+        "nome": { "type": "string" },
+        "tipo": { "type": "string" }
+      },
+      "required": ["id", "codigo", "nome"]
+    },
+    "PedidoVenda": {
+      "title": "PedidoVenda",
+      "description": "Pedido de venda comercial no ciclo da agroindústria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numero": { "type": "string" },
+        "cliente_nome": { "type": "string" },
+        "etapa": { "type": "string" },
+        "valor_total": { "type": "number" }
+      },
+      "required": ["id", "numero", "cliente_nome", "etapa"]
+    },
+    "Agricultor": {
+      "title": "Agricultor",
+      "description": "Produtor rural fornecedor de raiz de mandioca",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome_completo": { "type": "string" },
+        "nome_propriedade": { "type": "string" },
+        "cpf_cnpj": { "type": "string" },
+        "chave_pix": { "type": "string" }
+      },
+      "required": ["id", "nome_completo"]
+    },
+    "Cliente": {
+      "title": "Cliente",
+      "description": "Cliente comprador (distribuidor, indústria, atacado)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "razao_social": { "type": "string" },
+        "nome_fantasia": { "type": "string" },
+        "cpf_cnpj": { "type": "string" }
+      },
+      "required": ["id", "razao_social"]
+    },
+    "Fornecedor": {
+      "title": "Fornecedor",
+      "description": "Fornecedor de insumos, embalagens, lenha ou serviços",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "razao_nome": { "type": "string" },
+        "cpf_cnpj": { "type": "string" }
+      },
+      "required": ["id", "razao_nome"]
+    },
+    "RCA": {
+      "title": "RCA",
+      "description": "Representante Comercial Autônomo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "regiao": { "type": "string" }
+      },
+      "required": ["id", "nome"]
+    },
+    "OrdemProducao": {
+      "title": "OrdemProducao",
+      "description": "Ordem e lote de fabricação industrial",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numero_op": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "numero_op"]
+    },
+    "PedidoCompra": {
+      "title": "PedidoCompra",
+      "description": "Pedido de compra de matéria-prima e insumos",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "item_descricao": { "type": "string" },
+        "valor_total": { "type": "number" },
+        "status_pedido": { "type": "string" }
+      },
+      "required": ["id", "item_descricao"]
+    },
+    "CalculoRoca": {
+      "title": "CalculoRoca",
+      "description": "Medição de balança d'água e amido no campo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agricultor_nome": { "type": "string" },
+        "teor_amido_percentual": { "type": "number" }
+      },
+      "required": ["id"]
+    },
+    "TituloPagar": {
+      "title": "TituloPagar",
+      "description": "Conta a pagar da empresa",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numero_documento": { "type": "string" },
+        "favorecido_nome": { "type": "string" },
+        "valor": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "favorecido_nome", "valor"]
+    },
+    "TituloReceber": {
+      "title": "TituloReceber",
+      "description": "Conta a receber de vendas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numero_documento": { "type": "string" },
+        "cliente_nome": { "type": "string" },
+        "valor": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "cliente_nome", "valor"]
+    },
+    "DespesaOperacional": {
+      "title": "DespesaOperacional",
+      "description": "Lançamento de despesa operacional da fábrica",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "descricao": { "type": "string" },
+        "valor": { "type": "number" },
+        "categoria": { "type": "string" }
+      },
+      "required": ["id", "descricao", "valor"]
+    },
+    "NotaFiscal": {
+      "title": "NotaFiscal",
+      "description": "Nota fiscal de entrada ou saída",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numero": { "type": "string" },
+        "tipo": { "type": "string" },
+        "valor_total": { "type": "number" }
+      },
+      "required": ["id", "numero"]
+    }
+  },
+  "firestore": {
+    "/produtos/{produtoId}": {
+      "schema": { "$ref": "#/entities/Produto" },
+      "description": "Coleção de produtos acabados"
+    },
+    "/materias_primas/{materiaPrimaId}": {
+      "schema": { "$ref": "#/entities/MateriaPrima" },
+      "description": "Coleção de matérias-primas e insumos"
+    },
+    "/receitas/{receitaId}": {
+      "schema": { "$ref": "#/entities/Receita" },
+      "description": "Coleção de formulações e receitas industriais"
+    },
+    "/fichas_tecnicas/{fichaId}": {
+      "schema": { "$ref": "#/entities/FichaTecnica" },
+      "description": "Coleção de fichas técnicas de produto"
+    },
+    "/tabelas_preco/{tabelaId}": {
+      "schema": { "$ref": "#/entities/TabelaPreco" },
+      "description": "Coleção de tabelas comerciais"
+    },
+    "/pedidos_venda/{pedidoId}": {
+      "schema": { "$ref": "#/entities/PedidoVenda" },
+      "description": "Coleção de pedidos comerciais"
+    },
+    "/agricultores/{agricultorId}": {
+      "schema": { "$ref": "#/entities/Agricultor" },
+      "description": "Coleção de agricultores parceiros"
+    },
+    "/clientes/{clienteId}": {
+      "schema": { "$ref": "#/entities/Cliente" },
+      "description": "Coleção de clientes cadastrados"
+    },
+    "/fornecedores/{fornecedorId}": {
+      "schema": { "$ref": "#/entities/Fornecedor" },
+      "description": "Coleção de fornecedores"
+    },
+    "/rcas/{rcaId}": {
+      "schema": { "$ref": "#/entities/RCA" },
+      "description": "Coleção de representantes comerciais"
+    },
+    "/ordens_producao/{ordemId}": {
+      "schema": { "$ref": "#/entities/OrdemProducao" },
+      "description": "Coleção de ordens de produção"
+    },
+    "/pedidos_compra/{compraId}": {
+      "schema": { "$ref": "#/entities/PedidoCompra" },
+      "description": "Coleção de compras de matéria-prima e insumos"
+    },
+    "/calculos_roca/{calculoId}": {
+      "schema": { "$ref": "#/entities/CalculoRoca" },
+      "description": "Coleção de pesagens e balança d'água na roça"
+    },
+    "/titulos_pagar/{tituloId}": {
+      "schema": { "$ref": "#/entities/TituloPagar" },
+      "description": "Coleção de títulos a pagar"
+    },
+    "/titulos_receber/{tituloId}": {
+      "schema": { "$ref": "#/entities/TituloReceber" },
+      "description": "Coleção de títulos a receber"
+    },
+    "/despesas_operacionais/{despesaId}": {
+      "schema": { "$ref": "#/entities/DespesaOperacional" },
+      "description": "Coleção de despesas operacionais"
+    },
+    "/notas_fiscais/{notaId}": {
+      "schema": { "$ref": "#/entities/NotaFiscal" },
+      "description": "Coleção de notas fiscais de entrada e saída"
+    }
+  }
+}

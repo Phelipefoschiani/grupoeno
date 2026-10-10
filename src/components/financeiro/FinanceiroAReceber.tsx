@@ -1,0 +1,439 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  DollarSign,
+  Plus,
+  Search,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Copy,
+  Check,
+  Calendar,
+  Building2,
+  Edit2,
+  Trash2,
+  X,
+  Save,
+  Printer,
+  Receipt
+} from 'lucide-react';
+import {
+  TituloReceber,
+  carregarTitulosReceber,
+  salvarTitulosReceber
+} from '../../data/financeiroData';
+import { FinanceiroNavTabs } from './FinanceiroNavTabs';
+
+interface Props {
+  onNavigate?: (tabId: string) => void;
+}
+
+export function FinanceiroAReceber({ onNavigate }: Props) {
+  const [titulos, setTitulos] = useState<TituloReceber[]>([]);
+  const [busca, setBusca] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<string>('TODOS');
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
+
+  // Modal Novo Título
+  const [modalNovo, setModalNovo] = useState(false);
+  const [formData, setFormData] = useState({
+    numero_documento: '',
+    cliente_nome: '',
+    cliente_cnpj: '',
+    valor: 10000,
+    data_emissao: new Date().toLocaleDateString('pt-BR'),
+    data_vencimento: '',
+    forma_pagamento: 'Boleto Bancário 28 Dias',
+    banco_emissor: 'Banco do Brasil S.A.',
+    observacoes: ''
+  });
+
+  const recarregar = () => {
+    setTitulos(carregarTitulosReceber());
+  };
+
+  useEffect(() => {
+    recarregar();
+    const handleUpdate = () => recarregar();
+    window.addEventListener('financeiro_updated', handleUpdate);
+    return () => window.removeEventListener('financeiro_updated', handleUpdate);
+  }, []);
+
+  // Métricas
+  const metricas = useMemo(() => {
+    const emAberto = titulos.filter(t => t.status === 'EM_ABERTO').reduce((acc, t) => acc + t.valor, 0);
+    const recebidoMes = titulos.filter(t => t.status === 'PAGO').reduce((acc, t) => acc + t.valor, 0);
+    const qtdAberto = titulos.filter(t => t.status === 'EM_ABERTO').length;
+
+    return { emAberto, recebidoMes, qtdAberto };
+  }, [titulos]);
+
+  const titulosFiltrados = useMemo(() => {
+    return titulos.filter(t => {
+      const match =
+        t.cliente_nome.toLowerCase().includes(busca.toLowerCase()) ||
+        t.numero_documento.toLowerCase().includes(busca.toLowerCase()) ||
+        t.cliente_cnpj.includes(busca);
+
+      if (!match) return false;
+      if (filtroStatus !== 'TODOS' && t.status !== filtroStatus) return false;
+      return true;
+    });
+  }, [titulos, busca, filtroStatus]);
+
+  // Baixa de título
+  const handleBaixarTitulo = (id: string, doc: string) => {
+    if (confirm(`Confirmar liquidação / baixa do título ${doc}?`)) {
+      const atualizados: TituloReceber[] = titulos.map(t => {
+        if (t.id === id) {
+          return {
+            ...t,
+            status: 'PAGO' as const,
+            data_pagamento: new Date().toLocaleDateString('pt-BR')
+          };
+        }
+        return t;
+      });
+      salvarTitulosReceber(atualizados);
+    }
+  };
+
+  const handleCopiarLinha = (linha: string, id: string) => {
+    navigator.clipboard.writeText(linha);
+    setCopiadoId(id);
+    setTimeout(() => setCopiadoId(null), 2000);
+  };
+
+  const handleSalvarNovo = (e: React.FormEvent) => {
+    e.preventDefault();
+    const novo: TituloReceber = {
+      id: `rec_${Date.now()}`,
+      ...formData,
+      status: 'EM_ABERTO'
+    };
+    salvarTitulosReceber([novo, ...titulos]);
+    setModalNovo(false);
+  };
+
+  return (
+    <div className="relative h-full w-full flex flex-col bg-[#f8faf8] text-slate-800 overflow-hidden">
+      
+      {/* 1. NAVEGAÇÃO FINANCEIRO */}
+      <FinanceiroNavTabs activeTab="financeiro_a_receber" onNavigate={onNavigate} />
+
+      {/* 2. CABEÇALHO COMPACTO & MINIMALISTA */}
+      <div className="bg-white border-b border-slate-200/80 px-6 py-3.5 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <span>Contas a Receber</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">
+                {metricas.qtdAberto} em aberto
+              </span>
+            </h1>
+            <p className="text-xs text-slate-500 font-medium">
+              Controle de duplicatas comerciais, boletos bancários gerados dos pedidos e conciliação de recebíveis.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              const d = new Date();
+              d.setDate(d.getDate() + 28);
+              setFormData({
+                numero_documento: `DUP-${Math.floor(1000 + Math.random() * 9000)}`,
+                cliente_nome: '',
+                cliente_cnpj: '',
+                valor: 25000,
+                data_emissao: new Date().toLocaleDateString('pt-BR'),
+                data_vencimento: d.toLocaleDateString('pt-BR'),
+                forma_pagamento: 'Boleto Bancário 28 Dias',
+                banco_emissor: 'Banco do Brasil S.A.',
+                observacoes: ''
+              });
+              setModalNovo(true);
+            }}
+            className="
+              flex items-center gap-2 px-4 py-2 rounded-xl
+              bg-emerald-900 hover:bg-emerald-950 text-white font-bold text-xs
+              shadow-xs transition-all cursor-pointer
+            "
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo Título a Receber</span>
+          </button>
+        </div>
+
+        {/* STAT BAR MINIMALISTA EM LINHA */}
+        <div className="flex flex-wrap items-center gap-6 pt-3 mt-3 border-t border-slate-100 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-medium">Total em Aberto na Carteira:</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">
+              {metricas.emAberto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
+          </div>
+          <div className="w-px h-4 bg-slate-200 hidden sm:block" />
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-medium">Recebido no Mês:</span>
+            <span className="font-mono font-bold text-emerald-700">
+              {metricas.recebidoMes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. BARRA DE BUSCA E FILTROS */}
+      <div className="bg-[#f1f5f2] px-6 py-2.5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex-1 min-w-[260px] max-w-sm relative">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por Cliente, Documento ou CNPJ..."
+            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-700 font-medium"
+          />
+        </div>
+
+        <select
+          value={filtroStatus}
+          onChange={(e) => setFiltroStatus(e.target.value)}
+          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none"
+        >
+          <option value="TODOS">Todos os Status</option>
+          <option value="EM_ABERTO">Em Aberto</option>
+          <option value="PAGO">Liquidados / Pagos</option>
+        </select>
+      </div>
+
+      {/* 4. TABELA LIMPA */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/90 text-slate-500 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider">
+                <th className="py-3 px-5">Documento & Cliente</th>
+                <th className="py-3 px-4">Banco / Cobrança</th>
+                <th className="py-3 px-4">Vencimento</th>
+                <th className="py-3 px-4">Valor Nominal</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-5 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {titulosFiltrados.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                    Nenhum título a receber encontrado.
+                  </td>
+                </tr>
+              ) : (
+                titulosFiltrados.map((item) => {
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-5">
+                        <div className="font-bold text-slate-900">{item.cliente_nome}</div>
+                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          {item.numero_documento} • CNPJ: {item.cliente_cnpj}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-slate-700">
+                        <div>{item.banco_emissor}</div>
+                        {item.linha_digitavel && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span className="text-[10px] text-slate-400 font-mono truncate max-w-xs">
+                              {item.linha_digitavel}
+                            </span>
+                            <button
+                              onClick={() => handleCopiarLinha(item.linha_digitavel!, item.id)}
+                              className="p-0.5 hover:text-slate-900 text-slate-400 cursor-pointer"
+                              title="Copiar Linha Digitável do Boleto"
+                            >
+                              {copiadoId === item.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono">
+                        <div className="font-bold text-slate-800">{item.data_vencimento}</div>
+                        <div className="text-[10px] text-slate-400 font-sans">Emitido em {item.data_emissao}</div>
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 text-sm">
+                        {item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        {item.status === 'PAGO' ? (
+                          <div className="flex items-center gap-1.5 text-emerald-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                            <span className="font-medium">Liquidado</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-amber-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            <span className="font-medium">Aguardando Pagamento</span>
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-5 text-right">
+                        {item.status === 'EM_ABERTO' ? (
+                          <button
+                            onClick={() => handleBaixarTitulo(item.id, item.numero_documento)}
+                            className="
+                              inline-flex items-center gap-1 px-3 py-1.5 rounded-lg
+                              bg-emerald-900 hover:bg-emerald-950 text-white font-bold text-xs
+                              shadow-2xs transition-colors cursor-pointer
+                            "
+                            title="Confirmar Liquidação Bancária"
+                          >
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Baixar</span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-mono">
+                            Pago em {item.data_pagamento}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 5. MODAL NOVO TÍTULO A RECEBER (AMPLO E HORIZONTAL) */}
+      {modalNovo && (
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/70 backdrop-blur-xs p-3 sm:p-6 flex justify-center items-start animate-fadeIn">
+          <div className="relative w-full max-w-4xl sm:max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col my-auto max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)]">
+            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-900/80 border border-emerald-700 flex items-center justify-center text-emerald-300">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-white">Lançar Título a Receber</h3>
+                  <p className="text-[11px] text-slate-400">Contas a receber, faturas e duplicatas de vendas</p>
+                </div>
+              </div>
+              <button onClick={() => setModalNovo(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarNovo} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Nº Documento / Duplicata</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.numero_documento}
+                    onChange={(e) => setFormData({ ...formData, numero_documento: e.target.value })}
+                    placeholder="Ex: DUP-4029 / NF-e 891"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Valor do Título (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    required
+                    value={formData.valor}
+                    onChange={(e) => setFormData({ ...formData, valor: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-700"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Cliente Devedor</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.cliente_nome}
+                    onChange={(e) => setFormData({ ...formData, cliente_nome: e.target.value })}
+                    placeholder="Razão Social ou Nome Fantasia do Cliente"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-bold text-slate-800 focus:outline-none focus:border-emerald-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">CNPJ / CPF</label>
+                  <input
+                    type="text"
+                    value={formData.cliente_cnpj}
+                    onChange={(e) => setFormData({ ...formData, cliente_cnpj: e.target.value })}
+                    placeholder="00.000.000/0000-00"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono text-slate-800 focus:outline-none focus:border-emerald-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Data de Vencimento</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.data_vencimento}
+                    onChange={(e) => setFormData({ ...formData, data_vencimento: e.target.value })}
+                    placeholder="DD/MM/AAAA"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono text-slate-800 focus:outline-none focus:border-emerald-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Forma de Pagamento</label>
+                  <input
+                    type="text"
+                    value={formData.forma_pagamento}
+                    onChange={(e) => setFormData({ ...formData, forma_pagamento: e.target.value })}
+                    placeholder="Boleto 30/60DD / TED / PIX"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 font-medium focus:outline-none focus:border-emerald-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Banco Cobrança</label>
+                  <input
+                    type="text"
+                    value={formData.banco_emissor}
+                    onChange={(e) => setFormData({ ...formData, banco_emissor: e.target.value })}
+                    placeholder="Banco do Brasil / Itaú / Bradesco"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 font-medium focus:outline-none focus:border-emerald-700"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModalNovo(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-emerald-900 hover:bg-emerald-950 text-white font-bold transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Gravar Título</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

@@ -1,0 +1,61 @@
+import React from 'react';
+
+type HeaderProps = {
+  onOpenLogin: () => void;
+};
+
+/**
+ * Header - Grupo ENO v13
+ * Faixa de fora a fora (full width) em tom escuro com sombra sobreposta.
+ */
+export function Header({ onOpenLogin }: HeaderProps) {
+  return (
+    <header className="w-full bg-white/95 backdrop-blur-md text-slate-900 border-b border-slate-200/80 shadow-xs shrink-0">
+      <div className="mx-auto flex h-16 sm:h-20 w-full max-w-7xl items-center justify-between px-6 sm:px-10 lg:px-12">
+        
+        {/* Brand / Logo */}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center text-white shadow-sm shadow-emerald-700/20">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
+              GRUPO ENO
+            </span>
+            <span className="text-[10px] font-bold text-emerald-700 tracking-wider uppercase mt-0.5">
+              Agroindústria & Mandiocultura
+            </span>
+          </div>
+        </div>
+
+        {/* Action: Acessar o Sistema */}
+        <div>
+          <button
+            onClick={onOpenLogin}
+            className="
+              inline-flex items-center justify-center gap-2
+              rounded-xl
+              bg-emerald-600 hover:bg-emerald-700
+              border border-emerald-600
+              px-5 py-2.5 sm:px-6 sm:py-2.5
+              text-xs sm:text-sm font-bold text-white
+              shadow-sm shadow-emerald-700/20
+              transition-all duration-150
+              hover:-translate-y-0.5
+              active:translate-y-0
+              cursor-pointer whitespace-nowrap
+            "
+          >
+            <span>Acessar o Sistema</span>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </header>
+  );
+}

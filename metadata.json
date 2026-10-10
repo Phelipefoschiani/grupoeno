@@ -1,0 +1,6 @@
+{
+  "name": "Grupo ENO",
+  "description": "Sistema de Gestão Empresarial Integrado do Grupo ENO",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
